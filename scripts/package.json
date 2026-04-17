@@ -1,0 +1,24 @@
+{
+  "name": "tlapiani-data-scripts",
+  "version": "1.0.0",
+  "description": "Scripts de datos para Tlapiani - Hackatón Por Amor a Puebla 2026",
+  "type": "module",
+  "scripts": {
+    "schema":    "echo 'Ejecuta 01_supabase_schema.sql en el SQL Editor de Supabase'",
+    "seed":      "echo 'Ejecuta 02_demo_seed.sql en el SQL Editor de Supabase'",
+    "nasa":      "node 03_nasa_power.js",
+    "ndvi":      "node 04_ndvi_modis.js",
+    "ndvi:sim":  "node 04_ndvi_modis.js --simulado",
+    "bio":       "node 05_biodigestor.js",
+    "verify":    "node 06_verificar_sistema.js",
+    "todo":      "npm run nasa && npm run ndvi && npm run verify"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.4.0",
+    "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
