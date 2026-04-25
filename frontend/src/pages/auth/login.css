@@ -1,0 +1,227 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* ── WRAPPER ── */
+.login-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background-image: url('../../assets/imagenes/fondo-azteca.png');
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+
+.login-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* ── GRID ── */
+.login-grid {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 1fr;   /* móvil: 1 columna */
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 100vw;
+}
+
+@media (min-width: 768px) {
+  .login-grid {
+    grid-template-columns: 1fr 1fr;   /* tablet/laptop: 2 columnas */
+  }
+}
+
+/* ── TARJETA FORMULARIO ── */
+.login-card {
+  background-color: #621132;
+  border-radius: 1rem;
+  padding: 2rem;                /* ← era 8rem, causaba el desborde */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+}
+
+@media (min-width: 1024px) {
+  .login-card {
+    padding: 2.5rem 3rem;       /* un poco más de aire en pantallas grandes */
+  }
+}
+
+/* ── AVATAR ── */
+.login-avatar {
+  width: 5rem;
+  height: 5rem;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 1.5rem;
+}
+
+/* ── TÍTULO ── */
+.login-title {
+  color: white;
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-family: Georgia, serif;
+  margin-bottom: 2rem;
+}
+
+/* ── FORMULARIO ── */
+.login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.login-label {
+  display: block;
+  color: white;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+  font-family: Georgia, serif;
+}
+
+.login-input {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: none;
+  outline: none;
+  background: white;
+  color: #1f2937;
+  font-size: 0.875rem;
+  transition: box-shadow 0.2s;
+}
+
+.login-input:focus {
+  box-shadow: 0 0 0 2px #b8860b;
+}
+
+.login-error {
+  color: #fde68a;
+  font-size: 0.75rem;
+  text-align: center;
+  background: rgba(255,255,255,0.1);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+/* ── BOTONES ── */
+.login-buttons {
+  display: flex;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+.btn-primary {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  font-family: Georgia, serif;
+  background-color: #b8860b;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.btn-primary:hover  { opacity: 0.9; }
+.btn-primary:active { transform: scale(0.95); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-secondary {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  font-size: 0.875rem;
+  font-family: Georgia, serif;
+  background-color: #8b7355;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.btn-secondary:hover  { opacity: 0.9; }
+.btn-secondary:active { transform: scale(0.95); }
+
+/* ── COLUMNA DERECHA ── */
+.login-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  justify-content: center;     /* centra verticalmente en laptop */
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.login-brand-logo {
+  background-image: url('../../assets/imagenes/logo.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  width: 5rem;                 /* ← era 8rem */
+  height: 5rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.login-brand-name {
+  color: white;
+  font-size: 1.5rem;           /* ← era 2.5rem, muy grande en móvil */
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-family: Georgia, serif;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+
+@media (min-width: 1024px) {
+  .login-brand-name {
+    font-size: 2rem;
+  }
+}
+
+.login-info-card {
+  border-radius: 1rem;
+  padding: 1.5rem;             /* ← era 4rem */
+  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  background-color: rgba(240, 235, 220, 0.92);
+}
+
+.login-info-title {
+  font-size: 1.25rem;          /* ← era 2rem */
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  line-height: 1.3;
+  color: #2d1a0a;
+  font-family: Georgia, serif;
+}
+
+.login-info-text {
+  font-size: 0.95rem;          /* ← era 1.25rem */
+  line-height: 1.6;
+  color: #3d2b1a;
+  font-family: Georgia, serif;
+}
+
+@media (min-width: 1024px) {
+  .login-info-title { font-size: 1.5rem; }
+  .login-info-text  { font-size: 1rem; }
+}
