@@ -1,0 +1,15 @@
+{
+  "name": "tlapiani-backend",
+  "type": "module",
+  "scripts": {
+    "ndvi": "node scripts/04_ndvi_modis.js",
+    "clima": "node scripts/03_nasa_power.js",
+    "all": "npm run ndvi && npm run clima",
+    "verify": "node scripts/06_verificar_sistema.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^16.4.5",
+    "node-fetch": "^3.3.2"
+  }
+}
