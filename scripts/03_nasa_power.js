@@ -1,271 +1,391 @@
 #!/usr/bin/env node
+// scripts/03_nasa_power.js
 // ============================================================
-// TLAPIANI - Script 03: NASA POWER API
-// Consulta datos climáticos para todas las parcelas demo
-// y calcula ET₀ (evapotranspiración de referencia) por cultivo
+// TLAPIANI - Pipeline de clima NASA POWER + riesgo de plagas
 //
-// USO: node 03_nasa_power.js
-// REQUIERE: npm install @supabase/supabase-js node-fetch dotenv
+// Orden ideal: primero 04_ndvi_modis.js, luego este script.
 // ============================================================
 
-import { createClient } from '@supabase/supabase-js'
-import fetch from 'node-fetch'
-import dotenv from 'dotenv'
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+import { calcularRiesgoPlaga } from './07_plagas.js'
 
-dotenv.config()
+dotenv.config();
 
+// ------------------------------------------------------------
+// 1. Inicialización del cliente de Supabase (service role)
+//    para poder escribir en la base de datos.
+// ------------------------------------------------------------
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY  // usa SERVICE key (no anon) para insertar
-)
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-// ── Parámetros NASA POWER que necesitamos ──────────────────
-const NASA_PARAMS = [
-  'T2M_MAX',        // Temperatura máxima (°C)
-  'T2M_MIN',        // Temperatura mínima (°C)
-  'RH2M',           // Humedad relativa media (%)
-  'ALLSKY_SFC_SW_DWN', // Radiación solar global (MJ/m²/día)
-  'WS2M',           // Velocidad del viento a 2m (m/s)
-  'PRECTOTCORR'     // Precipitación (mm/día)
-].join(',')
+// ------------------------------------------------------------
+// 2. Función principal: procesa todos los lotes activos.
+// ------------------------------------------------------------
+async function actualizarClimaYPlagas() {
+  console.log('🌤️  Iniciando actualización de clima y riesgo de plagas...\n');
 
-// ── Demanda hídrica por cultivo (Kc según etapa fenológica) ─
-// Fuente: FAO-56 Penman-Monteith
-const KC_TABLE = {
-  maiz: {
-    germinacion: 0.3, vegetativa: 0.7, floracion: 1.2,
-    fructificacion: 1.0, maduracion: 0.6, permanente: 0.7
-  },
-  frijol: {
-    germinacion: 0.4, vegetativa: 0.7, floracion: 1.1,
-    fructificacion: 0.9, maduracion: 0.5, permanente: 0.7
-  },
-  aguacate: {
-    germinacion: 0.5, vegetativa: 0.6, floracion: 0.9,
-    fructificacion: 0.9, maduracion: 0.8, permanente: 0.85
-  },
-  cafe: {
-    germinacion: 0.5, vegetativa: 0.6, floracion: 0.9,
-    fructificacion: 0.9, maduracion: 0.8, permanente: 0.9
-  },
-  calabaza: {
-    germinacion: 0.4, vegetativa: 0.7, floracion: 1.0,
-    fructificacion: 0.8, maduracion: 0.6, permanente: 0.7
-  },
-  default: {
-    germinacion: 0.4, vegetativa: 0.7, floracion: 1.0,
-    fructificacion: 0.9, maduracion: 0.6, permanente: 0.8
+  // 2a. Obtener todos los lotes de cultivo con sus coordenadas.
+  //     En una demo asumimos que los lotes tienen latitud y longitud.
+  const { data: lotes, error: errorLotes } = await supabase
+    .from('lotes_cultivo')
+    .select('id, nombre, latitud, longitud, cultivo');
+
+  if (errorLotes) {
+    console.error('❌ Error al leer lotes:', errorLotes.message);
+    return;
   }
+
+  if (!lotes || lotes.length === 0) {
+    console.warn('⚠️  No se encontraron lotes en la base de datos. Ejecuta primero el seed SQL.');
+    return;
+  }
+
+  // 2b. Para cada lote, descargar clima y evaluar plagas.
+  for (const lote of lotes) {
+    console.log(`📡 Procesando lote "${lote.nombre}" (${lote.cultivo})...`);
+    await procesarLote(lote);
+  }
+
+  console.log('✅ Actualización completada para todos los lotes.');
 }
 
-// ── Calcular ET₀ con Hargreaves-Samani (simplificado FAO) ──
-// Requiere solo Tmax, Tmin y Radiación extraterrestre
-// Hargreaves: ET₀ = 0.0023 * (Tmean+17.8) * (Tmax-Tmin)^0.5 * Rs
-function calcularETO(tmax, tmin, rs) {
-  if (!tmax || !tmin || !rs) return null
-  const tmean = (tmax + tmin) / 2
-  const eto = 0.0023 * (tmean + 17.8) * Math.pow(tmax - tmin, 0.5) * rs
-  return Math.max(0, Math.round(eto * 100) / 100)
-}
+// ------------------------------------------------------------
+// 3. Procesar un lote individual
+// ------------------------------------------------------------
+async function procesarLote(lote) {
+  const hoy = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
-// ── Calcular días para próximo riego ────────────────────────
-// Simplificado: ETc = ET₀ * Kc; días_riego = capacidad_campo / ETc
-// Capacidad de campo asumida: 50mm (suelo franco típico)
-function calcularDiasRiego(eto, cultivo, etapa, precipitacion) {
-  const kc = (KC_TABLE[cultivo] || KC_TABLE.default)[etapa] || 0.7
-  const etc = eto * kc  // Evapotranspiración del cultivo (mm/día)
-  const agua_disponible = 50 - (precipitacion || 0) // mm disponibles
-  const dias = Math.round(agua_disponible / etc)
-  return Math.max(0, Math.min(dias, 14)) // Entre 0 y 14 días
-}
-
-// ── Estado semáforo basado en días para riego ───────────────
-function calcularSemaforo(diasRiego, ndviEstado) {
-  if (diasRiego <= 1 || ndviEstado === 'estres_severo') return 'rojo'
-  if (diasRiego <= 3 || ndviEstado === 'estres_leve')   return 'amarillo'
-  return 'verde'
-}
-
-// ── Generar texto de recomendación ──────────────────────────
-function generarRecomendacion(diasRiego, cultivo, semaforo) {
-  const cultivoNombre = {
-    maiz: 'maíz', frijol: 'frijol', aguacate: 'aguacate',
-    cafe: 'café', calabaza: 'calabaza'
-  }[cultivo] || cultivo
-
-  const es = diasRiego === 0
-    ? `⚠️ Riegue su ${cultivoNombre} HOY. Estrés hídrico detectado.`
-    : diasRiego === 1
-    ? `Riegue su ${cultivoNombre} mañana.`
-    : `Su ${cultivoNombre} puede esperar ${diasRiego} días para el próximo riego.`
-
-  const nah = diasRiego === 0
-    ? `⚠️ Axan xaltetili mo${cultivo === 'maiz' ? 'tlayol' : 'xochitl'}.`
-    : diasRiego === 1
-    ? `Mostla xaltetili mo${cultivo === 'maiz' ? 'tlayol' : 'xochitl'}.`
-    : `Mo${cultivo === 'maiz' ? 'tlayol' : 'xochitl'} ipan ${diasRiego} tonal.`
-
-  return { es, nah }
-}
-
-// ── Consultar NASA POWER API ────────────────────────────────
-async function consultarNASAPower(lat, lon) {
-  // Fechas: últimos 7 días
-  const hoy = new Date()
-  const hace7 = new Date(hoy)
-  hace7.setDate(hoy.getDate() - 8)
-
-  const formatFecha = (d) =>
-    `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`
-
+  // 3a. Construir y llamar a la API de NASA POWER
+  //     Parámetros: T2M_MAX, T2M_MIN, RH2M, PRECTOT
+  //     Comunidad AG (agrícola)
   const url = `https://power.larc.nasa.gov/api/temporal/daily/point` +
-    `?parameters=${NASA_PARAMS}` +
+    `?parameters=T2M_MAX,T2M_MIN,RH2M,PRECTOT` +
     `&community=AG` +
-    `&longitude=${lon}` +
-    `&latitude=${lat}` +
-    `&start=${formatFecha(hace7)}` +
-    `&end=${formatFecha(hoy)}` +
-    `&format=JSON`
+    `&longitude=${lote.longitud}&latitude=${lote.latitud}` +
+    `&start=${hoy}&end=${hoy}` +
+    `&format=JSON`;
 
-  console.log(`  → Consultando NASA POWER para (${lat}, ${lon})...`)
+  let datosClima;
+  try {
+    const respuesta = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!respuesta.ok) {
+      console.error(`  ↳ NASA API respondió con status ${respuesta.status} para lote ${lote.nombre}`);
+      return;
+    }
+    const json = await respuesta.json();
 
-  const res = await fetch(url)
-  if (!res.ok) {
-    console.error(`  ✗ Error NASA POWER: ${res.status}`)
-    return null
+    // Extraemos los valores. La API devuelve un objeto con -999 para datos faltantes.
+    const tmax = json?.properties?.parameter?.T2M_MAX?.[hoy] ?? null;
+    const tmin = json?.properties?.parameter?.T2M_MIN?.[hoy] ?? null;
+    const humedad = json?.properties?.parameter?.RH2M?.[hoy] ?? null;
+    const precipitacion = json?.properties?.parameter?.PRECTOT?.[hoy] ?? null;
+
+    if (tmax === -999 || tmin === -999 || humedad === -999 || precipitacion === -999) {
+      console.warn(`  ↳ Datos incompletos para ${lote.nombre}. Se omite.`);
+      return;
+    }
+
+    datosClima = { tmax, tmin, humedad, precipitacion };
+  } catch (error) {
+    console.error(`  ↳ Error de red o timeout con NASA POWER: ${error.message}`);
+    return;
   }
 
-  const data = await res.json()
-  const props = data?.properties?.parameter
+  // 3b. Calcular días consecutivos sin lluvia a partir del histórico local.
+  const diasSecos = await calcularDiasSinLluvia(lote.id);
 
-  if (!props) {
-    console.error('  ✗ Respuesta inesperada de NASA POWER')
-    return null
-  }
+  // 3c. Obtener el NDVI más reciente (inyectado por 04_ndvi_modis.js)
+  const ndviActual = await obtenerNdviActual(lote.id);
 
-  // Promediar los últimos 3 días disponibles
-  const fechas = Object.keys(props.T2M_MAX || {}).slice(-3)
-  if (fechas.length === 0) return null
+  // 3d. Ejecutar el motor de plagas
+  const riesgo = calcularRiesgoPlaga({
+    tmax: datosClima.tmax,
+    tmin: datosClima.tmin,
+    humedad: datosClima.humedad,
+    precipitacion: datosClima.precipitacion,
+    ndvi: ndviActual,
+    cultivo: lote.cultivo,
+    dias_sin_lluvia: diasSecos,
+  });
 
-  const promedio = (campo) => {
-    const vals = fechas.map(f => props[campo]?.[f]).filter(v => v != null && v !== -999)
-    return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null
-  }
-
-  return {
-    temperatura_max: Math.round(promedio('T2M_MAX') * 10) / 10,
-    temperatura_min: Math.round(promedio('T2M_MIN') * 10) / 10,
-    humedad_relativa: Math.round(promedio('RH2M') * 10) / 10,
-    radiacion_solar:  Math.round(promedio('ALLSKY_SFC_SW_DWN') * 1000) / 1000,
-    precipitacion:    Math.round(promedio('PRECTOTCORR') * 10) / 10
-  }
-}
-
-// ── Guardar en Supabase ─────────────────────────────────────
-async function guardarMonitoreo(loteId, climatico, ndviData) {
-  const eto = calcularETO(
-    climatico.temperatura_max,
-    climatico.temperatura_min,
-    climatico.radiacion_solar
-  )
-
-  const dias = calcularDiasRiego(
-    eto,
-    ndviData.cultivo,
-    ndviData.etapa,
-    climatico.precipitacion
-  )
-
-  const textos = generarRecomendacion(dias, ndviData.cultivo, null)
-  const semaforo = calcularSemaforo(dias, ndviData.ndvi_estado)
-
+  // 3e. Upsert en monitoreo_lote (combinación única: lote_id + fecha)
   const { error } = await supabase
     .from('monitoreo_lote')
-    .upsert({
-      lote_id: loteId,
-      fecha: new Date().toISOString().split('T')[0],
-      temperatura_max: climatico.temperatura_max,
-      temperatura_min: climatico.temperatura_min,
-      humedad_relativa: climatico.humedad_relativa,
-      radiacion_solar: climatico.radiacion_solar,
-      eto,
-      ndvi: ndviData.ndvi,
-      ndvi_estado: ndviData.ndvi_estado || 'sin_dato',
-      dias_para_riego: dias,
-      recomendacion_texto_es: textos.es,
-      recomendacion_texto_nah: textos.nah,
-      estado_semaforo: semaforo,
-      alerta_plaga: false
-    }, { onConflict: 'lote_id,fecha' })
+    .upsert(
+      {
+        lote_id: lote.id,
+        fecha: hoy,
+        tmax: datosClima.tmax,
+        tmin: datosClima.tmin,
+        humedad: datosClima.humedad,
+        precipitacion: datosClima.precipitacion,
+        ndvi: ndviActual,
+        riesgo_plaga: riesgo.nivel_riesgo,
+        plaga_probable: riesgo.plaga_probable,
+        recomendacion_es: riesgo.recomendacion_es,
+        recomendacion_nah: riesgo.recomendacion_nah,
+        alerta_plaga: riesgo.alerta_plaga,
+      },
+      { onConflict: 'lote_id, fecha' } // Requiere restricción UNIQUE(lote_id, fecha)
+    );
 
   if (error) {
-    console.error(`  ✗ Error guardando en Supabase: ${error.message}`)
-    return false
+    console.error(`  ❌ Error al guardar datos de ${lote.nombre}: ${error.message}`);
+  } else {
+    console.log(`  ✅ ${lote.nombre}: Tmax=${datosClima.tmax}°C, NDVI=${ndviActual}, Riesgo=${riesgo.nivel_riesgo} (${riesgo.plaga_probable})`);
   }
-  return true
 }
 
-// ── MAIN ────────────────────────────────────────────────────
-async function main() {
-  console.log('\n🌾 TLAPIANI - Script NASA POWER')
-  console.log('================================\n')
-
-  // 1. Obtener todos los lotes con su parcela y coordenadas
-  const { data: lotes, error } = await supabase
-    .from('lotes_cultivo')
-    .select(`
-      id, cultivo, etapa_fenologica,
-      parcela:parcelas(latitud, longitud, nombre)
-    `)
-
-  if (error) {
-    console.error('Error obteniendo lotes:', error.message)
-    process.exit(1)
-  }
-
-  console.log(`Procesando ${lotes.length} lotes de cultivo...\n`)
-
-  // 2. Obtener datos NDVI de Supabase (pre-cargados por script 04)
-  const { data: monitoreos } = await supabase
+// ------------------------------------------------------------
+// 4. Calcular días consecutivos sin lluvia (máx. 10 días).
+// ------------------------------------------------------------
+async function calcularDiasSinLluvia(loteId) {
+  const { data, error } = await supabase
     .from('monitoreo_lote')
-    .select('lote_id, ndvi, ndvi_estado')
-    .eq('fecha', new Date().toISOString().split('T')[0])
+    .select('precipitacion, fecha')
+    .eq('lote_id', loteId)
+    .order('fecha', { ascending: false })
+    .limit(10);
 
-  const ndviPorLote = {}
-  monitoreos?.forEach(m => { ndviPorLote[m.lote_id] = m })
-
-  // 3. Por cada lote, consultar NASA y calcular
-  let exitosos = 0
-  for (const lote of lotes) {
-    const { latitud, longitud, nombre } = lote.parcela
-    console.log(`📍 ${nombre} - ${lote.cultivo} (${lote.etapa_fenologica})`)
-
-    const climatico = await consultarNASAPower(latitud, longitud)
-    if (!climatico) {
-      console.log('  ⚠️  Sin datos climáticos, saltando...\n')
-      continue
-    }
-
-    console.log(`  ET₀: ${calcularETO(climatico.temperatura_max, climatico.temperatura_min, climatico.radiacion_solar)} mm/día`)
-
-    const ndviInfo = ndviPorLote[lote.id] || { ndvi: null, ndvi_estado: 'sin_dato' }
-
-    const ok = await guardarMonitoreo(lote.id, climatico, {
-      ...ndviInfo,
-      cultivo: lote.cultivo,
-      etapa: lote.etapa_fenologica
-    })
-
-    if (ok) {
-      console.log('  ✓ Guardado en Supabase\n')
-      exitosos++
-    }
-
-    // Delay de 1s entre peticiones para no sobrecargar la API
-    await new Promise(r => setTimeout(r, 1000))
+  if (error || !data) {
+    console.warn('  ↳ No se pudo leer histórico de lluvia, asumiendo 0 días secos.');
+    return 0;
   }
 
-  console.log(`\n✅ Completado: ${exitosos}/${lotes.length} lotes procesados`)
+  let secos = 0;
+  for (const registro of data) {
+    if (registro.precipitacion === 0) {
+      secos++;
+    } else {
+      break;
+    }
+  }
+  return secos;
 }
 
-main().catch(console.error)
+// ------------------------------------------------------------
+// 5. Obtener el NDVI más reciente (de 04_ndvi_modis.js o real)
+// ------------------------------------------------------------
+async function obtenerNdviActual(loteId) {
+  const { data, error } = await supabase
+    .from('monitoreo_lote')
+    .select('ndvi')
+    .eq('lote_id', loteId)
+    .order('fecha', { ascending: false })
+    .limit(1)
+    .single();
+
+  // Si hay un error o no hay dato, usamos un valor por defecto de 0.5
+  if (error || !data) {
+    console.warn('  ↳ NDVI no disponible, usando 0.5 por defecto.');
+    return 0.5;
+  }
+  return data.ndvi;
+}
+
+// ------------------------------------------------------------
+// Arranque del script
+// ------------------------------------------------------------
+actualizarClimaYPlagas()
+  .catch(console.error)
+  .finally(() => process.exit(0));#!/usr/bin / env node
+// scripts/03_nasa_power.js
+// ============================================================
+// TLAPIANI - Pipeline de clima NASA POWER + riesgo de plagas
+//
+// Ejecutar una vez al día (o bajo demanda) para actualizar
+// la tabla monitoreo_lote con los datos meteorológicos y
+// el cálculo de riesgo fitosanitario.
+//
+// Orden ideal: primero 04_ndvi_modis.js, luego este script.
+// ============================================================
+
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+import { calcularRiesgoPlaga } from './07_plagas.js';
+
+dotenv.config();
+
+// ------------------------------------------------------------
+// 1. Inicialización del cliente de Supabase (service role)
+//    para poder escribir en la base de datos.
+// ------------------------------------------------------------
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+// ------------------------------------------------------------
+// 2. Función principal: procesa todos los lotes activos.
+// ------------------------------------------------------------
+async function actualizarClimaYPlagas() {
+  console.log('🌤️  Iniciando actualización de clima y riesgo de plagas...\n');
+
+  // 2a. Obtener todos los lotes de cultivo con sus coordenadas.
+  //     En una demo asumimos que los lotes tienen latitud y longitud.
+  const { data: lotes, error: errorLotes } = await supabase
+    .from('lotes_cultivo')
+    .select('id, nombre, latitud, longitud, cultivo');
+
+  if (errorLotes) {
+    console.error('❌ Error al leer lotes:', errorLotes.message);
+    return;
+  }
+
+  if (!lotes || lotes.length === 0) {
+    console.warn('⚠️  No se encontraron lotes en la base de datos. Ejecuta primero el seed SQL.');
+    return;
+  }
+
+  // 2b. Para cada lote, descargar clima y evaluar plagas.
+  for (const lote of lotes) {
+    console.log(`📡 Procesando lote "${lote.nombre}" (${lote.cultivo})...`);
+    await procesarLote(lote);
+  }
+
+  console.log('✅ Actualización completada para todos los lotes.');
+}
+
+// ------------------------------------------------------------
+// 3. Procesar un lote individual
+// ------------------------------------------------------------
+async function procesarLote(lote) {
+  const hoy = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+  // 3a. Construir y llamar a la API de NASA POWER
+  //     Parámetros: T2M_MAX, T2M_MIN, RH2M, PRECTOT
+  //     Comunidad AG (agrícola)
+  const url = `https://power.larc.nasa.gov/api/temporal/daily/point` +
+    `?parameters=T2M_MAX,T2M_MIN,RH2M,PRECTOT` +
+    `&community=AG` +
+    `&longitude=${lote.longitud}&latitude=${lote.latitud}` +
+    `&start=${hoy}&end=${hoy}` +
+    `&format=JSON`;
+
+  let datosClima;
+  try {
+    const respuesta = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!respuesta.ok) {
+      console.error(`  ↳ NASA API respondió con status ${respuesta.status} para lote ${lote.nombre}`);
+      return;
+    }
+    const json = await respuesta.json();
+
+    // Extraemos los valores. La API devuelve un objeto con -999 para datos faltantes.
+    const tmax = json?.properties?.parameter?.T2M_MAX?.[hoy] ?? null;
+    const tmin = json?.properties?.parameter?.T2M_MIN?.[hoy] ?? null;
+    const humedad = json?.properties?.parameter?.RH2M?.[hoy] ?? null;
+    const precipitacion = json?.properties?.parameter?.PRECTOT?.[hoy] ?? null;
+
+    if (tmax === -999 || tmin === -999 || humedad === -999 || precipitacion === -999) {
+      console.warn(`  ↳ Datos incompletos para ${lote.nombre}. Se omite.`);
+      return;
+    }
+
+    datosClima = { tmax, tmin, humedad, precipitacion };
+  } catch (error) {
+    console.error(`  ↳ Error de red o timeout con NASA POWER: ${error.message}`);
+    return;
+  }
+
+  // 3b. Calcular días consecutivos sin lluvia a partir del histórico local.
+  const diasSecos = await calcularDiasSinLluvia(lote.id);
+
+  // 3c. Obtener el NDVI más reciente (inyectado por 04_ndvi_modis.js)
+  const ndviActual = await obtenerNdviActual(lote.id);
+
+  // 3d. Ejecutar el motor de plagas
+  const riesgo = calcularRiesgoPlaga({
+    tmax: datosClima.tmax,
+    tmin: datosClima.tmin,
+    humedad: datosClima.humedad,
+    precipitacion: datosClima.precipitacion,
+    ndvi: ndviActual,
+    cultivo: lote.cultivo,
+    dias_sin_lluvia: diasSecos,
+  });
+
+  // 3e. Upsert en monitoreo_lote (combinación única: lote_id + fecha)
+  const { error } = await supabase
+    .from('monitoreo_lote')
+    .upsert(
+      {
+        lote_id: lote.id,
+        fecha: hoy,
+        tmax: datosClima.tmax,
+        tmin: datosClima.tmin,
+        humedad: datosClima.humedad,
+        precipitacion: datosClima.precipitacion,
+        ndvi: ndviActual,
+        riesgo_plaga: riesgo.nivel_riesgo,
+        plaga_probable: riesgo.plaga_probable,
+        recomendacion_es: riesgo.recomendacion_es,
+        recomendacion_nah: riesgo.recomendacion_nah,
+        alerta_plaga: riesgo.alerta_plaga,
+      },
+      { onConflict: 'lote_id, fecha' } // Requiere restricción UNIQUE(lote_id, fecha)
+    );
+
+  if (error) {
+    console.error(`  ❌ Error al guardar datos de ${lote.nombre}: ${error.message}`);
+  } else {
+    console.log(`  ✅ ${lote.nombre}: Tmax=${datosClima.tmax}°C, NDVI=${ndviActual}, Riesgo=${riesgo.nivel_riesgo} (${riesgo.plaga_probable})`);
+  }
+}
+
+// ------------------------------------------------------------
+// 4. Calcular días consecutivos sin lluvia (máx. 10 días).
+// ------------------------------------------------------------
+async function calcularDiasSinLluvia(loteId) {
+  const { data, error } = await supabase
+    .from('monitoreo_lote')
+    .select('precipitacion, fecha')
+    .eq('lote_id', loteId)
+    .order('fecha', { ascending: false })
+    .limit(10);
+
+  if (error || !data) {
+    console.warn('  ↳ No se pudo leer histórico de lluvia, asumiendo 0 días secos.');
+    return 0;
+  }
+
+  let secos = 0;
+  for (const registro of data) {
+    if (registro.precipitacion === 0) {
+      secos++;
+    } else {
+      break;
+    }
+  }
+  return secos;
+}
+
+// ------------------------------------------------------------
+// 5. Obtener el NDVI más reciente (de 04_ndvi_modis.js o real)
+// ------------------------------------------------------------
+async function obtenerNdviActual(loteId) {
+  const { data, error } = await supabase
+    .from('monitoreo_lote')
+    .select('ndvi')
+    .eq('lote_id', loteId)
+    .order('fecha', { ascending: false })
+    .limit(1)
+    .single();
+
+  // Si hay un error o no hay dato, usamos un valor por defecto de 0.5
+  if (error || !data) {
+    console.warn('  ↳ NDVI no disponible, usando 0.5 por defecto.');
+    return 0.5;
+  }
+  return data.ndvi;
+}
+
+// ------------------------------------------------------------
+// Arranque del script
+// ------------------------------------------------------------
+actualizarClimaYPlagas()
+  .catch(console.error)
+  .finally(() => process.exit(0));
