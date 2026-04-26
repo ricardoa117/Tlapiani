@@ -1,9 +1,3 @@
-
----
-
-## 🚫 `.gitignore` (raíz del proyecto)
-
-```gitignore
 # Dependencias
 node_modules/
 
@@ -19,7 +13,7 @@ frontend/dist/
 *.log
 npm-debug.log*
 
-# Sistema
+# Sistema operativo
 .DS_Store
 Thumbs.db
 
@@ -30,5 +24,4 @@ Thumbs.db
 *.swo
 
 # Backend específico
-backend/.env
-backend/data/*.csv  # (Descomenta si el CSV es muy grande y no quieres subirlo)
+backend/data/*.csv

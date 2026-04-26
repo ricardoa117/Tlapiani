@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'  // ← tu cliente real
+import { supabase } from '../../lib/supabase'
 import './login.css'
 
 function Login() {
     const navigate = useNavigate()
-    const [usuario, setUsuario] = useState('')
+    const [folio, setFolio] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
@@ -13,13 +13,33 @@ function Login() {
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         setLoading(true)
-        await new Promise(r => setTimeout(r, 800))
-        if (usuario === 'admin' && password === '1234') {
-            navigate('/admin')
-        } else {
-            setError('Usuario o contraseña incorrectos.')
-        }
+        setError('')
+
+        // Consulta a la tabla productores
+        const { data, error: err } = await supabase
+            .from('productores')
+            .select('id, folio, nombre, idioma_preferido, tipo_acceso, rol')
+            .eq('folio', folio)
+            .eq('password', password)
+            .eq('activo', true)
+            .single()
+
         setLoading(false)
+
+        if (err || !data) {
+            setError('Folio o contraseña incorrectos.')
+            return
+        }
+
+        // Guardamos la sesión en localStorage
+        localStorage.setItem('usuario', JSON.stringify(data))
+
+        // Redirigir según el rol
+        if (data.rol === 'admin') {
+            navigate('/admin/dashboard')
+        } else {
+            navigate('/productor/dashboard')
+        }
     }
 
     return (
@@ -36,13 +56,13 @@ function Login() {
 
                     <form className="login-form" onSubmit={handleSubmit}>
                         <div>
-                            <label className="login-label" htmlFor="usuario">usuario:</label>
+                            <label className="login-label" htmlFor="folio">Folio:</label>
                             <input
-                                id="usuario"
+                                id="folio"
                                 className="login-input"
                                 type="text"
-                                value={usuario}
-                                onChange={e => { setUsuario(e.target.value); setError('') }}
+                                value={folio}
+                                onChange={e => { setFolio(e.target.value); setError('') }}
                                 required
                             />
                         </div>
@@ -73,7 +93,7 @@ function Login() {
 
                 <div className="login-right">
                     <div className="login-brand">
-                        <div className="login-brand-logo">x</div>
+                        <div className="login-brand-logo" />
                         <span className="login-brand-name">HACKGRICULTORES</span>
                     </div>
                     <div className="login-info-card">
