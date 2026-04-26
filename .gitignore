@@ -1,27 +1,44 @@
-# Dependencias
-node_modules/
+# ============================================================
+# TLAPIANI - .gitignore
+# ============================================================
 
-# Variables de entorno (contienen claves secretas)
-.env
-.env.local
-.env.*.local
-
-# Archivos de construcción del frontend
+# ── Frontend ──────────────────────────────────────────────
+frontend/node_modules/
 frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
 
-# Logs
-*.log
-npm-debug.log*
+# ── Backend ───────────────────────────────────────────────
+backend/node_modules/
+backend/.env
+backend/.env.local
 
-# Sistema operativo
+# ── Archivos de sistema ──────────────────────────────────
 .DS_Store
 Thumbs.db
-
-# Archivos de editor
-.vscode/
-.idea/
+*.log
 *.swp
 *.swo
+*~
 
-# Backend específico
-backend/data/*.csv
+# ── IDEs ──────────────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ── Temporales ────────────────────────────────────────────
+*.tmp
+*.bak
+.cache/
+
+# ── Datos sensibles ───────────────────────────────────────
+*.pem
+*.key
+*.cert
+secrets/
+
+# ── CSV de datos (opcional - comentar si quieres subirlos) ─
+# backend/data/*.csv

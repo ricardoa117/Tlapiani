@@ -1,8 +1,8 @@
-# Tlapiani – Plataforma de Resiliencia Climática Agrícola
+# 🌽 Tlapiani – Plataforma de Resiliencia Climática Agrícola
 
 Sistema de alertas tempranas de plagas impulsado por datos satelitales (NASA POWER) y un bot de WhatsApp para líderes ejidales.
 
-## Arquitectura
+## 🧱 Arquitectura
 
 El proyecto sigue una estructura simple de dos carpetas:
 
@@ -11,4 +11,4 @@ El proyecto sigue una estructura simple de dos carpetas:
 
 Ambas partes comparten la misma base de datos PostgreSQL en **Supabase**. No hay un servidor HTTP intermedio: el frontend lee con la clave anónima y los scripts escriben con la clave de servicio.
 
-## Estructura de directorios
+## 📁 Estructura de directorios
