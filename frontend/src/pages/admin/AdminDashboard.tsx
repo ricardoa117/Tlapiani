@@ -103,14 +103,10 @@ export default function AdminDashboard() {
 
         setAdminNombre(datos.nombre);
         setAdminMunicipioId(datos.municipio_id || null);
+        cargarDatos(datos.municipio_id || null);
     }, [navigate]);
 
-    useEffect(() => {
-        if (!cargando && adminNombre === 'Administrador' && !adminMunicipioId) return; // Wait for session
-        cargarDatos();
-    }, [adminMunicipioId]);
-
-    async function cargarDatos() {
+    async function cargarDatos(mId: number | null = adminMunicipioId) {
         setCargando(true);
 
         // 1. Cargar productores con sus parcelas y monitoreo
@@ -136,8 +132,8 @@ export default function AdminDashboard() {
             .eq('rol', 'productor')
             .order('created_at', { ascending: false });
 
-        if (adminMunicipioId) {
-            queryProds.eq('municipio_id', adminMunicipioId);
+        if (mId) {
+            queryProds.eq('municipio_id', mId);
         }
 
         const { data: prods, error: errorProds } = await queryProds;
@@ -204,8 +200,8 @@ export default function AdminDashboard() {
             .from('zonas_restauracion')
             .select('*, municipios(nombre)');
             
-        if (adminMunicipioId) {
-            queryZonas = queryZonas.eq('municipio_id', adminMunicipioId);
+        if (mId) {
+            queryZonas = queryZonas.eq('municipio_id', mId);
         }
 
         const { data: zonasData, error: errorZonas } = await queryZonas;
@@ -254,7 +250,7 @@ export default function AdminDashboard() {
             return;
         }
 
-        cargarDatos();
+        cargarDatos(adminMunicipioId);
     }
 
     function cerrarSesion() {
@@ -356,7 +352,7 @@ export default function AdminDashboard() {
                     cultivosSeleccionados: []
                 });
                 setMensajeModal('');
-                cargarDatos();
+                cargarDatos(adminMunicipioId);
             }, 4000);
 
         } catch (error: any) {
@@ -636,7 +632,7 @@ export default function AdminDashboard() {
                                 }}
                             />
                             <button
-                                onClick={cargarDatos}
+                                onClick={() => cargarDatos(adminMunicipioId)}
                                 style={{
                                     background: '#6b1a2a',
                                     color: '#f0ebdc',
