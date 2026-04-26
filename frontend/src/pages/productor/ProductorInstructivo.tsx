@@ -66,7 +66,7 @@ export default function ProductorInstructivo() {
 
                 <div style={styles.footer}>
                     <p style={styles.footerText}>
-                        ¿Necesitas ayuda en Náhuatl? Escríbenos por WhatsApp y te atenderemos en tu idioma. 🌽
+                        ¿Necesitas ayuda en Náhuatl? Escríbenos por WhatsApp y te atenderemos en tu idioma.
                     </p>
                 </div>
             </main>
