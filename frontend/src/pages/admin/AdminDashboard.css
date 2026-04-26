@@ -1,0 +1,590 @@
+/* AdminDashboard.css */
+
+/* ── Estilos base ─────────────────────────────────────────── */
+.admin-wrapper {
+    background: linear-gradient(135deg, #2d1a0a 0%, #1a0a05 100%);
+    min-height: 100vh;
+    padding: 20px;
+    font-family: 'Georgia', serif;
+}
+
+.admin-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* ── Loading ───────────────────────────────────────────────── */
+.admin-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: #1a0a05;
+    color: #f0ebdc;
+    font-family: 'Georgia', serif;
+}
+
+.admin-loading-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+.admin-header {
+    background: #f0ebdc;
+    border: 2px solid #b8860b;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.admin-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.admin-logo {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #6b1a2a;
+    color: #f0ebdc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: bold;
+    border: 3px solid #b8860b;
+}
+
+.admin-title {
+    color: #6b1a2a;
+    margin: 0;
+    font-size: clamp(20px, 4vw, 28px);
+}
+
+.admin-subtitle {
+    color: #2b2620;
+    margin: 4px 0 0;
+    font-size: 14px;
+}
+
+.admin-header-right {
+    text-align: right;
+}
+
+.admin-user {
+    color: #2b2620;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.admin-btn-logout {
+    background: #6b1a2a;
+    color: #f0ebdc;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Georgia', serif;
+    font-weight: bold;
+}
+
+/* ── Tabs ──────────────────────────────────────────────────── */
+.admin-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.admin-tab {
+    padding: 12px 24px;
+    border-radius: 8px;
+    background: #f0ebdc;
+    color: #2b2620;
+    border: 2px solid transparent;
+    cursor: pointer;
+    font-family: 'Georgia', serif;
+    font-weight: bold;
+    font-size: clamp(12px, 2vw, 14px);
+    transition: all 0.2s;
+}
+
+.admin-tab.active {
+    background: #6b1a2a;
+    color: #f0ebdc;
+    border-color: #b8860b;
+}
+
+/* ── Stats ─────────────────────────────────────────────────── */
+.admin-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.admin-stat-card {
+    background: #f0ebdc;
+    border: 2px solid #b8860b;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+}
+
+.admin-stat-num {
+    font-size: clamp(28px, 5vw, 36px);
+    font-weight: bold;
+    color: #6b1a2a;
+    display: block;
+    margin-bottom: 8px;
+}
+
+/* ── Search ────────────────────────────────────────────────── */
+.admin-search-bar {
+    background: #f0ebdc;
+    border: 2px solid #b8860b;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.admin-search-input {
+    flex: 1 1 300px;
+    padding: 10px 14px;
+    border: 1px solid #b8860b;
+    border-radius: 6px;
+    font-family: 'Georgia', serif;
+    font-size: 14px;
+}
+
+.admin-btn-reload {
+    background: #6b1a2a;
+    color: #f0ebdc;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Georgia', serif;
+    font-weight: bold;
+}
+
+/* ── Tabla ─────────────────────────────────────────────────── */
+.admin-table-container {
+    background: #f0ebdc;
+    border: 2px solid #b8860b;
+    border-radius: 12px;
+    overflow: auto;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+}
+
+.admin-table th {
+    background: #6b1a2a;
+    color: #f0ebdc;
+    padding: 14px 12px;
+    text-align: left;
+    font-size: 13px;
+}
+
+.admin-table td {
+    padding: 12px;
+    color: #2b2620;
+    font-size: 13px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.admin-table .even {
+    background: #fff;
+}
+
+.admin-table .odd {
+    background: #f9f9f9;
+}
+
+.folio {
+    color: #6b1a2a;
+    font-family: monospace;
+    font-weight: bold;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.riesgo-alto {
+    background: #FCEBEB;
+    color: #D85A30;
+}
+
+.riesgo-medio {
+    background: #FAEEDA;
+    color: #BA7517;
+}
+
+.riesgo-bajo {
+    background: #E1F5EE;
+    color: #1D9E75;
+}
+
+.idioma-nah {
+    background: #b8860b;
+    color: #fff;
+}
+
+.idioma-es {
+    background: #ccc;
+    color: #000;
+}
+
+.activo {
+    background: #E1F5EE;
+    color: #1D9E75;
+}
+
+.inactivo {
+    background: #FCEBEB;
+    color: #D85A30;
+}
+
+.acceso-icon {
+    font-size: 18px;
+    text-align: center;
+}
+
+.btn-toggle {
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.btn-toggle.desactivar {
+    background: #D85A30;
+}
+
+.btn-toggle.activar {
+    background: #1D9E75;
+}
+
+/* ── Mapa y zonas ─────────────────────────────────────────── */
+.admin-section-title {
+    color: #f0ebdc;
+    margin: 0 0 16px 0;
+}
+
+.admin-empty {
+    background: #f0ebdc;
+    border: 2px solid #b8860b;
+    border-radius: 12px;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.admin-empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.admin-map-container {
+    height: clamp(400px, 60vh, 600px);
+    border: 3px solid #b8860b;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.marker {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 3px solid white;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s;
+}
+
+.marker.disponible {
+    background: #22c55e;
+}
+
+.marker.asignada {
+    background: #ef4444;
+}
+
+.popup-content {
+    padding: 12px;
+    font-family: 'Georgia', serif;
+    color: #2b2620;
+}
+
+.popup-content h3 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+}
+
+.popup-content p {
+    margin: 4px 0;
+    font-size: 13px;
+}
+
+.cultivos-sugeridos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 8px 0;
+}
+
+.cultivo-badge {
+    background: #1D9E75;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+}
+
+.estado-badge {
+    padding: 8px;
+    border-radius: 6px;
+    margin: 8px 0;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.estado-badge.disponible {
+    background: #E1F5EE;
+    color: #1D9E75;
+}
+
+.estado-badge.asignada {
+    background: #FCEBEB;
+    color: #D85A30;
+}
+
+.btn-asignar {
+    width: 100%;
+    background: #6b1a2a;
+    color: #f0ebdc;
+    border: none;
+    padding: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Georgia', serif;
+    font-weight: bold;
+}
+
+.leyenda {
+    background: #f0ebdc;
+    border: 2px solid #b8860b;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    align-items: center;
+    font-size: 14px;
+}
+
+.leyenda-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid white;
+}
+
+.circle.verde {
+    background: #22c55e;
+}
+
+.circle.rojo {
+    background: #ef4444;
+}
+
+/* ── Modal ─────────────────────────────────────────────────── */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.modal-content {
+    background: linear-gradient(135deg, #2d1a0a 0%, #1a0a05 100%);
+    border: 3px solid #b8860b;
+    border-radius: 16px;
+    padding: 30px;
+    max-width: 500px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    color: #f0ebdc;
+}
+
+.modal-content h2 {
+    margin-top: 0;
+}
+
+.modal-subtitle {
+    color: #b8860b;
+    margin-bottom: 20px;
+}
+
+.modal-content label {
+    display: block;
+    margin: 16px 0 6px;
+    font-weight: bold;
+}
+
+.modal-content input[type="text"],
+.modal-content input[type="tel"] {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #b8860b;
+    background: #f0ebdc;
+    font-family: 'Georgia', serif;
+    box-sizing: border-box;
+}
+
+.btn-group {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-group button,
+.btn-tipo {
+    flex: 1;
+    padding: 10px;
+    border-radius: 6px;
+    background: #f0ebdc;
+    color: #2b2620;
+    border: 2px solid transparent;
+    cursor: pointer;
+    font-family: 'Georgia', serif;
+    font-weight: bold;
+}
+
+.btn-group button.active,
+.btn-tipo.active {
+    background: #6b1a2a;
+    color: #f0ebdc;
+    border-color: #b8860b;
+}
+
+.btn-tipo {
+    display: block;
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.checkbox-cultivo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    background: #f0ebdc;
+    color: #2b2620;
+    cursor: pointer;
+}
+
+.checkbox-cultivo input {
+    width: 18px;
+    height: 18px;
+}
+
+.modal-mensaje {
+    padding: 12px;
+    border-radius: 6px;
+    margin: 16px 0;
+    white-space: pre-line;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.btn-registrar {
+    flex: 1 1 150px;
+    background: #1D9E75;
+    color: #fff;
+    border: none;
+    padding: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Georgia', serif;
+    font-weight: bold;
+}
+
+.btn-cancelar {
+    flex: 1 1 150px;
+    background: #6b1a2a;
+    color: #f0ebdc;
+    border: none;
+    padding: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Georgia', serif;
+    font-weight: bold;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .admin-header {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .admin-header-right {
+        text-align: center;
+    }
+
+    .admin-stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .admin-map-container {
+        height: 300px !important;
+    }
+
+    .modal-content {
+        margin: 10px;
+        padding: 20px;
+    }
+}
