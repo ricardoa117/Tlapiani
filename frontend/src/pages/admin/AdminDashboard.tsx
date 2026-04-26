@@ -431,7 +431,7 @@ export default function AdminDashboard() {
                                         <th>Acceso</th>
                                         <th>Estado</th>
                                         <th>Acción</th>
-                                    </td>
+                                    </tr>
                                 </thead>
                                 <tbody>
                                     {productoresFiltrados.length === 0 ? (
