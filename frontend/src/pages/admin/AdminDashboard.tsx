@@ -195,25 +195,23 @@ export default function AdminDashboard() {
         }
 
         // 2. Zonas de restauración (CORREGIDO: LEFT JOIN)
-        let queryZonas = supabase
+        const { data: zonasData, error: errorZonas } = await supabase
             .from('zonas_restauracion')
             .select('*, municipios!left(nombre)');
-
-        const { data: zonasData, error: errorZonas } = await queryZonas;
 
         if (errorZonas) {
             console.error('Error cargando zonas:', errorZonas);
             setZonas([]);
         } else if (zonasData && zonasData.length > 0) {
             setZonas(zonasData);
-            // Centrar mapa en la primera zona (si hay)
+            // Centrar mapa en la primera zona
             setViewState({
                 latitude: zonasData[0].latitud,
                 longitude: zonasData[0].longitud,
                 zoom: 9,
             });
         } else {
-            console.log('No se encontraron zonas. Verifica que la tabla zonas_restauracion tenga datos y que los municipio_id existan.');
+            console.log('No se encontraron zonas. Verifica la tabla zonas_restauracion.');
             setZonas([]);
         }
 
