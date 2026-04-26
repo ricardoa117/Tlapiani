@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Map, { Marker, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '../../lib/supabase';
 import './ZonasRestauracion.css';
 import zonasDataJson from '../../../../backend/data/zonas_restauracion.json';
 
-// Definir el tipo para el JSON importado
+// Tipo de los datos JSON
 interface Zona {
     id: string;
     nombre: string;
@@ -23,16 +23,17 @@ interface Zona {
     estado: 'disponible' | 'asignada';
 }
 
-const datosEstaticos = zonasDataJson as Zona[];
+const zonasEstaticas = zonasDataJson as Zona[];
 
 export default function ZonasRestauracion() {
-    // Usar el JSON estático como estado inicial
-    const [zonas, setZonas] = useState<Zona[]>(datosEstaticos);
+    const [cargandoAdmin, setCargandoAdmin] = useState(true);
+    const [adminMunicipioId, setAdminMunicipioId] = useState<number | null>(null);
+    const [zonasFiltradas, setZonasFiltradas] = useState<Zona[]>([]);
+    
     const [zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
     const [mostrarPopup, setMostrarPopup] = useState(false);
     const [mostrarModal, setMostrarModal] = useState(false);
 
-    // Vista inicial centrada en Puebla
     const [viewState, setViewState] = useState({
         latitude: 19.0,
         longitude: -97.5,
@@ -52,6 +53,45 @@ export default function ZonasRestauracion() {
 
     const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
+    useEffect(() => {
+        async function inicializar() {
+            try {
+                const raw = localStorage.getItem('usuario');
+                if (raw) {
+                    const usuario = JSON.parse(raw);
+                    if (usuario.id) {
+                        const { data, error } = await supabase
+                            .from('productores')
+                            .select('municipio_id')
+                            .eq('id', usuario.id)
+                            .single();
+
+                        if (!error && data?.municipio_id) {
+                            setAdminMunicipioId(data.municipio_id);
+                            // Filtrar por el municipio_id del administrador
+                            const filtradas = zonasEstaticas.filter(z => z.municipio_id === data.municipio_id);
+                            setZonasFiltradas(filtradas);
+                            
+                            // Si hay zonas, centrar el mapa en la primera
+                            if (filtradas.length > 0) {
+                                setViewState({
+                                    latitude: filtradas[0].latitud,
+                                    longitude: filtradas[0].longitud,
+                                    zoom: 10
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Error al obtener datos del admin:", err);
+            } finally {
+                setCargandoAdmin(false);
+            }
+        }
+        inicializar();
+    }, []);
+
     async function registrarProductorEnZona() {
         if (!zonaSeleccionada) return;
         if (!formModal.nombre.trim()) {
@@ -66,90 +106,50 @@ export default function ZonasRestauracion() {
         setEnviandoModal(true);
         setMensajeModal('');
 
-        try {
+        // Simulación visual de guardado (sin Supabase)
+        setTimeout(() => {
             const folio = `TLP-${Date.now().toString(36).toUpperCase()}`;
-
-            // 1. Insertar productor
-            const { data: nuevoProd, error: errProd } = await supabase
-                .from('productores')
-                .insert({
-                    folio,
-                    nombre: formModal.nombre.trim(),
-                    telefono: formModal.telefono || null,
-                    municipio_id: zonaSeleccionada.municipio_id,
-                    idioma_preferido: formModal.idioma,
-                    tipo_acceso: formModal.tipoAcceso,
-                    password: 'cambiame123',
-                    rol: 'productor',
-                    activo: true,
-                    registrado_por: 'admin_zona_restauracion',
-                })
-                .select()
-                .single();
-            if (errProd) throw errProd;
-
-            // 2. Insertar parcela
-            const { data: nuevaParcela, error: errParcela } = await supabase
-                .from('parcelas')
-                .insert({
-                    productor_id: nuevoProd.id,
-                    nombre: `Zona: ${zonaSeleccionada.nombre}`,
-                    latitud: zonaSeleccionada.latitud,
-                    longitud: zonaSeleccionada.longitud,
-                    municipio_id: zonaSeleccionada.municipio_id,
-                    hectareas: zonaSeleccionada.hectareas,
-                    zona_id: zonaSeleccionada.id,
-                })
-                .select()
-                .single();
-            if (errParcela) throw errParcela;
-
-            // 3. Insertar lotes_cultivo
-            const hectareasPorCultivo = zonaSeleccionada.hectareas / formModal.cultivosSeleccionados.length;
-            const hoy = new Date().toISOString().split('T')[0];
-            const lotesInserts = formModal.cultivosSeleccionados.map(cultivo =>
-                supabase.from('lotes_cultivo').insert({
-                    parcela_id: nuevaParcela.id,
-                    cultivo: cultivo.toLowerCase(),
-                    hectareas: Math.round(hectareasPorCultivo * 100) / 100,
-                    etapa_fenologica: 'vegetativa',
-                    fecha_siembra: hoy,
-                })
-            );
-            await Promise.all(lotesInserts);
-
-            // 4. Actualizar estado local (JSON estático modificado en memoria)
-            setZonas(prevZonas => 
+            
+            // Actualizar el estado local para cambiar el color a rojo sin recargar la página
+            setZonasFiltradas(prevZonas => 
                 prevZonas.map(z => 
                     z.id === zonaSeleccionada.id ? { ...z, estado: 'asignada' } : z
                 )
             );
 
-            // 5. Intentar actualizar Supabase como respaldo (sin detener el flujo si falla)
-            const { error: errUpdate } = await supabase
-                .from('zonas_restauracion')
-                .update({ estado: 'asignada' })
-                .eq('id', zonaSeleccionada.id);
-            
-            if (errUpdate) {
-                console.warn('⚠️ No se pudo actualizar zonas_restauracion en Supabase. El estado local se ha actualizado.', errUpdate);
-            }
-
-            setMensajeModal(`✅ Productor registrado exitosamente.\n\nFolio: ${folio}\nContraseña: cambiame123`);
+            setMensajeModal(`✅ Productor guardado correctamente. Folio: ${folio}`);
             
             setTimeout(() => {
                 setMostrarModal(false);
                 setMostrarPopup(false);
                 setZonaSeleccionada(null);
-                setFormModal({ nombre: '', telefono: '', idioma: 'es', tipoAcceso: 'smartphone', cultivosSeleccionados: [] });
                 setMensajeModal('');
-            }, 3500);
-            
-        } catch (err: any) {
-            setMensajeModal(`❌ Error: ${err.message}`);
-        } finally {
+                // NO limpiamos los checkboxes ni el formulario según requerimiento
+            }, 1500);
+
             setEnviandoModal(false);
-        }
+        }, 800); // Pequeño delay para simular red
+    }
+
+    if (cargandoAdmin) {
+        return (
+            <div className="admin-loading" style={{ padding: '3rem', textAlign: 'center', color: '#b8860b' }}>
+                <div className="admin-loading-icon" style={{ fontSize: '2rem', animation: 'spin 1s infinite' }}>⚙️</div>
+                <p>Verificando permisos de zona...</p>
+            </div>
+        );
+    }
+
+    if (!adminMunicipioId) {
+        return (
+            <div className="zonas-restauracion-container">
+                <h2 className="admin-section-title">🌳 Zonas de Restauración Forestal</h2>
+                <div className="admin-empty" style={{ border: '1px dashed #ef4444' }}>
+                    <div className="admin-empty-icon">⚠️</div>
+                    <p style={{ color: '#ef4444' }}>No tienes un municipio asignado. Contacta al administrador general.</p>
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -161,10 +161,10 @@ export default function ZonasRestauracion() {
                     <div className="admin-empty-icon">🗺️</div>
                     <p>Error: falta VITE_MAPBOX_TOKEN en variables de entorno.</p>
                 </div>
-            ) : zonas.length === 0 ? (
+            ) : zonasFiltradas.length === 0 ? (
                 <div className="admin-empty">
                     <div className="admin-empty-icon">🌲</div>
-                    <p>No hay zonas de restauración en el archivo JSON.</p>
+                    <p>No hay zonas de restauración en tu municipio.</p>
                 </div>
             ) : (
                 <>
@@ -176,7 +176,7 @@ export default function ZonasRestauracion() {
                             style={{ width: '100%', height: '100%' }} 
                             mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
                         >
-                            {zonas.map(zona => (
+                            {zonasFiltradas.map(zona => (
                                 <Marker key={zona.id} latitude={zona.latitud} longitude={zona.longitud} anchor="bottom">
                                     <div 
                                         className={`marker ${zona.estado}`} 

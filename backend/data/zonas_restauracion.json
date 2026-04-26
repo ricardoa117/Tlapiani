@@ -9,8 +9,8 @@
         "hectareas": 2.5,
         "programa": "Sembrando Vida",
         "organizacion": "Bienestar",
-        "descripcion": "Restauración de cafetal bajo sombra en zona de niebla. Se busca recuperar especies nativas y generar empleo local.",
-        "actividades": "Plantar árboles nativos, manejo agroforestal, mantenimiento de cafetal, cercado perimetral.",
+        "descripcion": "Restauración de cafetal bajo sombra en zona de niebla.",
+        "actividades": "Plantar árboles nativos, manejo agroforestal, mantenimiento de cafetal.",
         "cultivos_sugeridos": [
             "café",
             "aguacate"
@@ -28,8 +28,8 @@
         "hectareas": 3.0,
         "programa": "PRONAFOR",
         "organizacion": "CONAFOR",
-        "descripcion": "Reforestación con pino y oyamel en zona degradada por tala ilegal.",
-        "actividades": "Plantar coníferas, obras de conservación de suelo, vigilancia comunitaria.",
+        "descripcion": "Reforestación con pino y oyamel en zona degradada.",
+        "actividades": "Plantar coníferas, obras de conservación de suelo.",
         "cultivos_sugeridos": [
             "pino",
             "oyamel"
@@ -47,13 +47,51 @@
         "hectareas": 1.8,
         "programa": "CONAFOR",
         "organizacion": "CONAFOR",
-        "descripcion": "Recuperación de suelo erosionado con maguey y nopal para forraje.",
-        "actividades": "Siembra de maguey, barreras vivas, captación de agua de lluvia.",
+        "descripcion": "Recuperación de suelo erosionado con maguey y nopal.",
+        "actividades": "Siembra de maguey, barreras vivas, captación de agua.",
         "cultivos_sugeridos": [
             "maguey",
             "nopal"
         ],
         "apoyo_mensual_estimado": 5200,
+        "estado": "disponible"
+    },
+    {
+        "id": "a1b2c3d4-4444-4000-8000-000000000004",
+        "nombre": "Bosque Encantado – Teziutlán",
+        "municipio_id": 1,
+        "municipio_nombre": "Teziutlán",
+        "latitud": 19.8300,
+        "longitud": -97.3600,
+        "hectareas": 4.0,
+        "programa": "Sembrando Vida",
+        "organizacion": "Bienestar",
+        "descripcion": "Reforestación con árboles frutales nativos.",
+        "actividades": "Plantar durazno, tejocote, cercado, poda.",
+        "cultivos_sugeridos": [
+            "durazno",
+            "tejocote"
+        ],
+        "apoyo_mensual_estimado": 7000,
+        "estado": "disponible"
+    },
+    {
+        "id": "a1b2c3d4-5555-4000-8000-000000000005",
+        "nombre": "Cerro del Águila – Zacatlán",
+        "municipio_id": 2,
+        "municipio_nombre": "Zacatlán",
+        "latitud": 20.0200,
+        "longitud": -97.9500,
+        "hectareas": 2.2,
+        "programa": "PRONAFOR",
+        "organizacion": "CONAFOR",
+        "descripcion": "Protección de manantial y reforestación con oyamel.",
+        "actividades": "Plantar oyamel, zanjas de infiltración.",
+        "cultivos_sugeridos": [
+            "oyamel",
+            "pino"
+        ],
+        "apoyo_mensual_estimado": 6100,
         "estado": "asignada"
     }
 ]
