@@ -337,7 +337,7 @@ html {
 .camion-icon {
     width: 50px;
     height: 40px;
-    background-image: url('../../assets/imagenes/camion-lechuga.png');
+    /* background-image: url('../../assets/imagenes/camion-lechuga.png'); */
     /* Asegúrate de que la ruta sea correcta */
     background-size: contain;
     background-repeat: no-repeat;
