@@ -43,8 +43,8 @@ interface Monitoreo {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const CULTIVO_EMOJI: Record<string, string> = {
-    maiz: '🌽', frijol: '🫘', aguacate: '🥑',
-    cafe: '☕', calabaza: '🎃', hortalizas: '🥬',
+    maiz: '', frijol: '', aguacate: '',
+    cafe: '', calabaza: '', hortalizas: '',
 }
 
 const SEMAFORO_LABEL: Record<string, string> = {
@@ -171,19 +171,19 @@ export default function ProductorDashboard() {
                     <div className="pd-welcome">
                         <div>
                             <h2 className="pd-welcome-title">
-                                {saludar()}, {usuario.nombre} 👋
+                                {saludar()}, {usuario.nombre}
                             </h2>
                             <p className="pd-welcome-sub">
-                                {usuario.idioma_preferido === 'nah' ? '🌽 Náhuatl' : '🇲🇽 Español'}
+                                {usuario.idioma_preferido === 'nah' ? 'Náhuatl' : '🇲🇽 Español'}
                                 &nbsp;·&nbsp;Acceso: {usuario.tipo_acceso}
                                 {alertasActivas > 0 && (
                                     <span style={{ color: '#f87171', marginLeft: '1rem' }}>
-                                        ⚠️ {alertasActivas} alerta{alertasActivas > 1 ? 's' : ''} activa{alertasActivas > 1 ? 's' : ''}
+                                        {alertasActivas} alerta{alertasActivas > 1 ? 's' : ''} activa{alertasActivas > 1 ? 's' : ''}
                                     </span>
                                 )}
                             </p>
                         </div>
-                        <span className="pd-folio-badge">📋 {usuario.folio}</span>
+                        <span className="pd-folio-badge"> {usuario.folio}</span>
                     </div>
 
                     {/* ── STATS RÁPIDAS ── */}
@@ -215,7 +215,7 @@ export default function ProductorDashboard() {
                     {/* ── ERROR ── */}
                     {errorMsg && (
                         <div className="pd-error">
-                            ⚠️ {errorMsg}
+                            {errorMsg}
                             <button
                                 onClick={() => usuario && cargarMonitoreos(usuario.id)}
                                 style={{
@@ -270,7 +270,7 @@ export default function ProductorDashboard() {
                                             <div className="pd-card-header">
                                                 <div className="pd-card-title-group">
                                                     <p className="pd-card-parcela">
-                                                        {CULTIVO_EMOJI[cultivo] || '🌿'}&nbsp;
+                                                        {CULTIVO_EMOJI[cultivo] || ''}&nbsp;
                                                         {parcela?.nombre ?? 'Parcela desconocida'}
                                                     </p>
                                                     <p className="pd-card-cultivo">
@@ -286,7 +286,7 @@ export default function ProductorDashboard() {
                                             {/* Alerta de plaga */}
                                             {m.alerta_plaga && (
                                                 <div className="pd-alerta-plaga">
-                                                    ⚠️ Alerta activa
+                                                     Alerta activa
                                                     {m.plaga_probable && (
                                                         <span>&nbsp;— {m.plaga_probable}</span>
                                                     )}
@@ -308,13 +308,13 @@ export default function ProductorDashboard() {
                                                     </span>
                                                 </div>
                                                 <div className="pd-metric">
-                                                    <span className="pd-metric-label">💧 Humedad</span>
+                                                    <span className="pd-metric-label"> Humedad</span>
                                                     <span className="pd-metric-value">
                                                         {m.humedad_relativa != null ? `${m.humedad_relativa}%` : '—'}
                                                     </span>
                                                 </div>
                                                 <div className="pd-metric">
-                                                    <span className="pd-metric-label">🌧️ Precipitación</span>
+                                                    <span className="pd-metric-label"> Precipitación</span>
                                                     <span className="pd-metric-value">
                                                         {m.precipitacion != null ? `${m.precipitacion} mm` : '—'}
                                                     </span>
@@ -324,7 +324,7 @@ export default function ProductorDashboard() {
                                                 {ndviPct != null && (
                                                     <div className="pd-ndvi-bar-wrap">
                                                         <div className="pd-metric-label" style={{ marginBottom: '0.3rem' }}>
-                                                            🌿 NDVI: {m.ndvi!.toFixed(3)}
+                                                             NDVI: {m.ndvi!.toFixed(3)}
                                                         </div>
                                                         <div className="pd-ndvi-bar-bg">
                                                             <div
@@ -342,13 +342,13 @@ export default function ProductorDashboard() {
                                             {/* Recomendación */}
                                             {recomendacion && (
                                                 <div className="pd-recomendacion">
-                                                    💬 {recomendacion}
+                                                     {recomendacion}
                                                 </div>
                                             )}
 
                                             {/* Fecha */}
                                             <p className="pd-card-fecha">
-                                                📅 {formatFecha(m.fecha)}
+                                                 {formatFecha(m.fecha)}
                                             </p>
                                         </div>
                                     </div>
@@ -358,31 +358,31 @@ export default function ProductorDashboard() {
                     )}
 
                     {/* ── INFO CARDS ── */}
-                    <h3 className="pd-section-title">ℹ️ Sobre Tlapiani</h3>
+                    <h3 className="pd-section-title"> Sobre Tlapiani</h3>
                     <div className="pd-info-grid">
                         <div className="pd-info-card">
-                            <h4 className="pd-info-card-title">🛰️ Datos Satelitales</h4>
+                            <h4 className="pd-info-card-title"> Datos Satelitales</h4>
                             <p className="pd-info-card-text">
                                 Analizamos índices NDVI con imágenes MODIS de la NASA para
                                 detectar estrés hídrico y cambios en la salud de tu cultivo antes de que sean visibles.
                             </p>
                         </div>
                         <div className="pd-info-card">
-                            <h4 className="pd-info-card-title">🌧️ Clima en Tiempo Real</h4>
+                            <h4 className="pd-info-card-title"> Clima en Tiempo Real</h4>
                             <p className="pd-info-card-text">
                                 Temperatura, humedad y precipitación desde estaciones meteorológicas
                                 y modelos NASA POWER calibrados para tu parcela.
                             </p>
                         </div>
                         <div className="pd-info-card">
-                            <h4 className="pd-info-card-title">🐛 Alertas de Plagas</h4>
+                            <h4 className="pd-info-card-title"> Alertas de Plagas</h4>
                             <p className="pd-info-card-text">
                                 Identificación temprana de plagas basada en condiciones climáticas
                                 y umbrales de riesgo regionales. Recomendaciones en tu idioma.
                             </p>
                         </div>
                         <div className="pd-info-card">
-                            <h4 className="pd-info-card-title">🌽 En tu Idioma</h4>
+                            <h4 className="pd-info-card-title"> En tu Idioma</h4>
                             <p className="pd-info-card-text">
                                 Todas las recomendaciones están disponibles en Español y Náhuatl.
                                 Puedes cambiar tu idioma en el perfil.
