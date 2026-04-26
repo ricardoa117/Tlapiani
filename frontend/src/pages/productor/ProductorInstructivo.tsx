@@ -2,32 +2,32 @@ import { useNavigate } from 'react-router-dom'
 
 const secciones = [
     {
-        icon: '🔐',
+        icon: '',
         titulo: '1. Iniciar Sesión',
         texto: 'Ingresa con tu Folio (código asignado por el administrador) y tu contraseña. Si no tienes cuenta, presiona "Registrar" en la pantalla de login.',
     },
     {
-        icon: '🌱',
+        icon: '',
         titulo: '2. Ver Mis Cultivos',
         texto: 'En tu Dashboard encontrarás tus parcelas registradas con el semáforo de salud (verde = bien, amarillo = atención, rojo = alerta). Actualizado con datos satelitales de la NASA.',
     },
     {
-        icon: '🛰️',
+        icon: '',
         titulo: '3. Datos Satelitales',
         texto: 'El sistema consulta MODIS/NDVI y NASA POWER para analizar la vegetación de tu parcela. Los datos se actualizan cada semana con información de temperatura, humedad y lluvia.',
     },
     {
-        icon: '🐛',
+        icon: '',
         titulo: '4. Alertas de Plagas',
         texto: 'Recibirás alertas cuando el modelo detecte condiciones propicias para plagas como el gusano cogollero o la roya. Incluye recomendaciones de control integrado.',
     },
     {
-        icon: '📱',
+        icon: '',
         titulo: '5. WhatsApp',
         texto: 'Si elegiste acceso por WhatsApp, recibirás resúmenes semanales y alertas directamente en tu celular en Náhuatl o Español según tu preferencia.',
     },
     {
-        icon: '🆘',
+        icon: '',
         titulo: '6. Soporte',
         texto: 'Para cambiar tu contraseña, actualizar tu parcela o reportar un problema, contacta a tu técnico agrícola o al administrador del sistema.',
     },
