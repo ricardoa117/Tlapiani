@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { actualizarDatosProductor } from '../../lib/nasaUpdater'
 import './login.css'
 
 function Login() {
@@ -33,6 +34,11 @@ function Login() {
 
         // Guardamos la sesión en localStorage
         localStorage.setItem('usuario', JSON.stringify(data))
+
+        // Si es productor, lanzamos el actualizador en background (sin await para no bloquear UI)
+        if (data.rol === 'productor') {
+            actualizarDatosProductor(data.id).catch(console.error);
+        }
 
         // Redirigir según el rol
         if (data.rol === 'admin') {
