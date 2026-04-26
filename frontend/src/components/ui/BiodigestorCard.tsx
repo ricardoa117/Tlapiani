@@ -17,7 +17,7 @@ export default function BiodigestorCard({ temperatura, ph, produccion_gas, estad
     return (
         <div style={styles.card}>
             <div style={styles.header}>
-                <h4 style={styles.title}>🌀 Biodigestor</h4>
+                <h4 style={styles.title}> Biodigestor</h4>
                 {estado && (
                     <span style={{ ...styles.badge, background: color + '22', color, border: `1px solid ${color}` }}>
                         {estado}
@@ -27,19 +27,19 @@ export default function BiodigestorCard({ temperatura, ph, produccion_gas, estad
             <div style={styles.metrics}>
                 {temperatura !== undefined && (
                     <div style={styles.metric}>
-                        <span style={styles.metricLabel}>🌡️ Temp.</span>
+                        <span style={styles.metricLabel}> Temp.</span>
                         <span style={styles.metricVal}>{temperatura}°C</span>
                     </div>
                 )}
                 {ph !== undefined && (
                     <div style={styles.metric}>
-                        <span style={styles.metricLabel}>⚗️ pH</span>
+                        <span style={styles.metricLabel}> pH</span>
                         <span style={styles.metricVal}>{ph}</span>
                     </div>
                 )}
                 {produccion_gas !== undefined && (
                     <div style={styles.metric}>
-                        <span style={styles.metricLabel}>💨 Gas</span>
+                        <span style={styles.metricLabel}> Gas</span>
                         <span style={styles.metricVal}>{produccion_gas} m³/día</span>
                     </div>
                 )}
