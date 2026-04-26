@@ -5,8 +5,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-// CORRECCIÓN: importar desde /mapbox
-import Map, { Marker, Popup } from 'react-map-gl/mapbox';
+import Map, { Marker, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './AdminDashboard.css';
 
@@ -505,7 +504,7 @@ export default function AdminDashboard() {
                                 <div className="admin-map-container">
                                     <Map
                                         {...viewState}
-                                        onMove={evt => setViewState(evt.viewState)}
+                                        onMove={(evt: any) => setViewState(evt.viewState)}
                                         mapboxAccessToken={mapboxToken}
                                         style={{ width: '100%', height: '100%' }}
                                         mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
