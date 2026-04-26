@@ -1,5 +1,5 @@
 // src/pages/productor/ProductorDashboard.tsx
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
@@ -70,6 +70,7 @@ export default function ProductorDashboard() {
     async function cargarDatos(productorId: string) {
         setCargando(true);
 
+        // Cargar monitoreos
         const { data: parcelasData } = await supabase
             .from('parcelas')
             .select(`
@@ -128,37 +129,35 @@ export default function ProductorDashboard() {
         });
 
         // Cargar recomendaciones - QUERY CORREGIDO
-        const { data: lotesData } = await supabase
-            .from('lotes_cultivo')
+        const { data: recomendacionesData } = await supabase
+            .from('recomendaciones_lote')
             .select(`
-        id,
-        cultivo,
-        parcelas!inner(productor_id)
+        cultivo_sugerido,
+        compatibilidad_porcentaje,
+        ganancia_estimada_ha,
+        razon_tecnica,
+        rendimiento_ha,
+        demanda,
+        ventaja_puebla,
+        lote_id,
+        lotes_cultivo!inner(
+          cultivo,
+          parcelas!inner(
+            productor_id
+          )
+        )
       `)
-            .eq('parcelas.productor_id', productorId);
+            .eq('lotes_cultivo.parcelas.productor_id', productorId)
+            .order('fecha_generacion', { ascending: false })
+            .limit(5);
 
-        if (lotesData && lotesData.length > 0) {
-            const lotesIds = lotesData.map(l => l.id);
-
-            const { data: recomendacionesData } = await supabase
-                .from('recomendaciones_lote')
-                .select('*')
-                .in('lote_id', lotesIds)
-                .order('fecha_generacion', { ascending: false })
-                .limit(5);
-
-            if (recomendacionesData) {
-                const recsConCultivo = recomendacionesData.map(rec => {
-                    const lote = lotesData.find(l => l.id === rec.lote_id);
-                    return {
-                        ...rec,
-                        lote: {
-                            cultivo: lote?.cultivo || ''
-                        }
-                    };
-                });
-                setRecomendaciones(recsConCultivo);
-            }
+        if (recomendacionesData) {
+            setRecomendaciones(recomendacionesData.map(r => ({
+                ...r,
+                lote: {
+                    cultivo: r.lotes_cultivo?.cultivo || ''
+                }
+            })));
         }
 
         setCargando(false);
@@ -318,9 +317,9 @@ export default function ProductorDashboard() {
                             💰 Recomendaciones de Cultivo
                         </h2>
 
-                        {recomendaciones.map((rec, index) => (
+                        {recomendaciones.map((rec, idx) => (
                             <div
-                                key={index}
+                                key={idx}
                                 style={{
                                     background: 'linear-gradient(135deg, #E1F5EE 0%, #E8F8F3 100%)',
                                     border: '2px solid #1D9E75',
@@ -454,7 +453,7 @@ export default function ProductorDashboard() {
                         </p>
                     </div>
                 ) : (
-                    monitoreos.map((mon) => (
+                    monitoreos.map((mon, idx) => (
                         <div
                             key={mon.id}
                             style={{

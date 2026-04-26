@@ -1,5 +1,5 @@
 // src/pages/admin/AdminDashboard.tsx
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import Map, { Marker, Popup } from 'react-map-gl';
@@ -96,6 +96,7 @@ export default function AdminDashboard() {
     async function cargarDatos() {
         setCargando(true);
 
+        // Cargar productores con monitoreo
         const { data: prods, error: errorProds } = await supabase
             .from('productores')
             .select(`
@@ -168,6 +169,7 @@ export default function AdminDashboard() {
             setStats({ total, activos, inactivos, nahuatl, en_riesgo_alto, con_alertas });
         }
 
+        // Cargar zonas
         const { data: zonasData, error: errorZonas } = await supabase
             .from('zonas_restauracion')
             .select('*, municipios(nombre)');
