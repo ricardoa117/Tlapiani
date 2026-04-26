@@ -63,7 +63,7 @@ export default function Registro() {
         latitud: '',
         longitud: '',
         hectareas: '1',
-        tipo_suelo: 'Franco',
+        tipo_suelo: 'franco',
         ph_suelo: '6.5',
     })
 
@@ -489,10 +489,10 @@ export default function Registro() {
                                         value={parcela.tipo_suelo}
                                         onChange={e => actualizarParcela('tipo_suelo', e.target.value)}
                                     >
-                                        <option value="Arcilloso">Arcilloso</option>
-                                        <option value="Arenoso">Arenoso</option>
-                                        <option value="Limoso">Limoso</option>
-                                        <option value="Franco">Franco</option>
+                                        <option value="arcilloso">Arcilloso</option>
+                                        <option value="arenoso">Arenoso</option>
+                                        <option value="limoso">Limoso</option>
+                                        <option value="franco">Franco</option>
                                     </select>
                                 </div>
 
