@@ -241,7 +241,7 @@ export default function ProductorDashboard() {
                         </div>
                     ) : monitoreos.length === 0 ? (
                         <div className="pd-empty">
-                            <p style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🌱</p>
+                            <p style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}></p>
                             <p>Aún no hay registros de monitoreo para tus parcelas.</p>
                             <p style={{ fontSize: '0.82rem', marginTop: '0.5rem', color: '#6b7280' }}>
                                 El equipo técnico generará los primeros reportes pronto.
@@ -296,13 +296,13 @@ export default function ProductorDashboard() {
                                             {/* Métricas climáticas */}
                                             <div className="pd-metrics">
                                                 <div className="pd-metric">
-                                                    <span className="pd-metric-label">🌡️ Temp. máx</span>
+                                                    <span className="pd-metric-label"> Temp. máx</span>
                                                     <span className="pd-metric-value">
                                                         {m.temperatura_max != null ? `${m.temperatura_max}°C` : '—'}
                                                     </span>
                                                 </div>
                                                 <div className="pd-metric">
-                                                    <span className="pd-metric-label">🌡️ Temp. mín</span>
+                                                    <span className="pd-metric-label"> Temp. mín</span>
                                                     <span className="pd-metric-value">
                                                         {m.temperatura_min != null ? `${m.temperatura_min}°C` : '—'}
                                                     </span>
