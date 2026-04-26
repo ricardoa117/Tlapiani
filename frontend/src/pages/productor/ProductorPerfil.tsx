@@ -30,7 +30,7 @@ export default function ProductorPerfil() {
                         <div style={styles.infoItem}>
                             <span style={styles.infoLabel}>Idioma</span>
                             <span style={styles.infoVal}>
-                                {usuario.idioma_preferido === 'nah' ? '🌽 Náhuatl' : '🇲🇽 Español'}
+                                {usuario.idioma_preferido === 'nah' ? 'Náhuatl' : '🇲🇽 Español'}
                             </span>
                         </div>
                         <div style={styles.infoItem}>
