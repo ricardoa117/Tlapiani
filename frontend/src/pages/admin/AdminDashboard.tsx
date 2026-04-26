@@ -133,11 +133,11 @@ export default function AdminDashboard() {
                                         <td style={s.td}>{p.nombre}</td>
                                         <td style={s.td}><code>{p.folio}</code></td>
                                         <td style={s.td}>{getMunicipio(p) || '—'}</td>
-                                        <td style={s.td}>{p.idioma_preferido === 'nah' ? '🌽 Náhuatl' : '🇲🇽 Español'}</td>
+                                        <td style={s.td}>{p.idioma_preferido === 'nah' ? 'Náhuatl' : '🇲🇽 Español'}</td>
                                         <td style={s.td}>{p.tipo_acceso}</td>
                                         <td style={s.td}>
                                             <span style={p.activo ? s.badgeActivo : s.badgeInactivo}>
-                                                {p.activo ? '✅ Activo' : '❌ Inactivo'}
+                                                {p.activo ? 'Activo' : 'Inactivo'}
                                             </span>
                                         </td>
                                         <td style={s.td}>
