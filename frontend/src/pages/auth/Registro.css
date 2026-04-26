@@ -228,20 +228,40 @@ html {
 
 /* RESPONSIVO */
 @media (max-width: 900px) {
-    .topbar-divider {
-        display: none;
-    }
+    .topbar-divider { display: none; }
+    .topbar-brand { padding: 0 1rem; }
+    .topbar-stepper { padding: 0 0.5rem; }
+    .step-line { width: 10%; }
+}
 
+@media (max-width: 600px) {
+    .registro-topbar {
+        height: auto;
+        flex-direction: column;
+        padding: 1rem 0;
+        gap: 1rem;
+    }
     .topbar-brand {
-        padding: 0 1rem;
+        padding: 0.5rem;
+        justify-content: center;
+        width: 100%;
+        text-align: center;
     }
-
     .topbar-stepper {
-        padding: 0 0.5rem;
+        display: none; /* Hide stepper on mobile to save space */
     }
-
-    .step-line {
-        width: 10%;
+    .registro-content {
+        gap: 1.5rem;
+    }
+    .form-box {
+        padding: 1.5rem 1rem;
+    }
+    .btn-group-2, .btn-group-3 {
+        grid-template-columns: 1fr;
+    }
+    .row {
+        flex-direction: column;
+        gap: 0.5rem;
     }
 }
 

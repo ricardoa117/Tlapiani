@@ -49,6 +49,7 @@ export default function AdminDashboard() {
     const [productoresFiltrados, setProductoresFiltrados] = useState<Productor[]>([]);
     const [busqueda, setBusqueda] = useState('');
     const [cargando, setCargando] = useState(true);
+    const [adminMunicipioId, setAdminMunicipioId] = useState<number | null>(null);
 
     // Estadísticas
     const [stats, setStats] = useState({
@@ -101,14 +102,19 @@ export default function AdminDashboard() {
         }
 
         setAdminNombre(datos.nombre);
-        cargarDatos();
+        setAdminMunicipioId(datos.municipio_id || null);
     }, [navigate]);
+
+    useEffect(() => {
+        if (!cargando && adminNombre === 'Administrador' && !adminMunicipioId) return; // Wait for session
+        cargarDatos();
+    }, [adminMunicipioId]);
 
     async function cargarDatos() {
         setCargando(true);
 
         // 1. Cargar productores con sus parcelas y monitoreo
-        const { data: prods, error: errorProds } = await supabase
+        let queryProds = supabase
             .from('productores')
             .select(`
         *,
@@ -129,6 +135,12 @@ export default function AdminDashboard() {
       `)
             .eq('rol', 'productor')
             .order('created_at', { ascending: false });
+
+        if (adminMunicipioId) {
+            queryProds.eq('municipio_id', adminMunicipioId);
+        }
+
+        const { data: prods, error: errorProds } = await queryProds;
 
         if (errorProds) {
             console.error('Error cargando productores:', errorProds);
@@ -188,9 +200,15 @@ export default function AdminDashboard() {
         }
 
         // 2. Cargar zonas de restauración
-        const { data: zonasData, error: errorZonas } = await supabase
+        let queryZonas = supabase
             .from('zonas_restauracion')
             .select('*, municipios(nombre)');
+            
+        if (adminMunicipioId) {
+            queryZonas = queryZonas.eq('municipio_id', adminMunicipioId);
+        }
+
+        const { data: zonasData, error: errorZonas } = await queryZonas;
 
         if (!errorZonas && zonasData && zonasData.length > 0) {
             setZonas(zonasData);
@@ -374,6 +392,15 @@ export default function AdminDashboard() {
             padding: '20px',
             fontFamily: 'Georgia, serif'
         }}>
+            <style>
+                {`
+                    .admin-table-container { overflow-x: auto; }
+                    .admin-map-container { height: clamp(400px, 60vh, 600px); }
+                    @media (max-width: 768px) {
+                        .admin-map-container { height: 250px !important; }
+                    }
+                `}
+            </style>
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
 
                 {/* ========== ENCABEZADO ========== */}
@@ -627,13 +654,12 @@ export default function AdminDashboard() {
                         </div>
 
                         {/* TABLA DE PRODUCTORES */}
-                        <div style={{
+                        <div className="admin-table-container" style={{
                             background: '#f0ebdc',
                             border: '2px solid #b8860b',
                             borderRadius: '12px',
-                            overflow: 'hidden'
                         }}>
-                            <div style={{ overflowX: 'auto' }}>
+                            <div style={{ minWidth: '800px' }}>
                                 <table style={{
                                     width: '100%',
                                     borderCollapse: 'collapse',
@@ -798,13 +824,12 @@ export default function AdminDashboard() {
                         ) : (
                             <>
                                 {/* MAPA */}
-                                <div style={{
+                                <div className="admin-map-container" style={{
                                     background: '#f0ebdc',
                                     border: '3px solid #b8860b',
                                     borderRadius: '12px',
                                     overflow: 'hidden',
                                     marginBottom: '20px',
-                                    height: 'clamp(400px, 60vh, 600px)'
                                 }}>
                                     <Map
                                         {...viewState}

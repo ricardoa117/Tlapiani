@@ -18,7 +18,7 @@ function Login() {
         // Consulta a la tabla productores
         const { data, error: err } = await supabase
             .from('productores')
-            .select('id, folio, nombre, idioma_preferido, tipo_acceso, rol')
+            .select('id, folio, nombre, idioma_preferido, tipo_acceso, rol, municipio_id')
             .eq('folio', folio)
             .eq('password', password)
             .eq('activo', true)
