@@ -47,7 +47,7 @@ export default function ProductorInstructivo() {
 
             <main style={styles.main}>
                 <div style={styles.intro}>
-                    <h2 style={styles.introTitle}>📖 ¿Cómo usar Tlapiani?</h2>
+                    <h2 style={styles.introTitle}> ¿Cómo usar Tlapiani?</h2>
                     <p style={styles.introText}>
                         Tlapiani es tu aliado digital en el campo. Aquí te explicamos cómo aprovechar
                         todas sus funciones para proteger y optimizar tus cultivos.
