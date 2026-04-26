@@ -1,6 +1,6 @@
 // src/pages/admin/AdminDashboard.tsx
 // ============================================================
-// TLAPIANI — Panel de Administración (Corregido)
+// TLAPIANI — Panel de Administración (Opción B: consulta robusta)
 // ============================================================
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +9,6 @@ import Map, { Marker, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './AdminDashboard.css';
 
-// ── Interfaces ──────────────────────────────────────────────
 interface Productor {
     id: string;
     folio: string;
@@ -39,7 +38,7 @@ interface Zona {
     cultivos_sugeridos: string[];
     apoyo_mensual_estimado: number;
     estado: 'disponible' | 'asignada';
-    municipios?: { nombre: string };
+    municipio_nombre?: string;
 }
 
 export default function AdminDashboard() {
@@ -51,7 +50,6 @@ export default function AdminDashboard() {
     const [cargando, setCargando] = useState(true);
     const [adminMunicipioId, setAdminMunicipioId] = useState<number | null>(null);
 
-    // Estadísticas
     const [stats, setStats] = useState({
         total: 0,
         activos: 0,
@@ -61,21 +59,18 @@ export default function AdminDashboard() {
         con_alertas: 0,
     });
 
-    // Zonas de restauración
     const [zonas, setZonas] = useState<Zona[]>([]);
     const [zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
     const [mostrarPopup, setMostrarPopup] = useState(false);
     const [mostrarModal, setMostrarModal] = useState(false);
     const [vistaActual, setVistaActual] = useState<'productores' | 'zonas'>('productores');
 
-    // Viewport del mapa
     const [viewState, setViewState] = useState({
         latitude: 19.0414,
         longitude: -98.2063,
         zoom: 9,
     });
 
-    // Formulario modal
     const [formModal, setFormModal] = useState({
         nombre: '',
         telefono: '',
@@ -86,7 +81,7 @@ export default function AdminDashboard() {
     const [mensajeModal, setMensajeModal] = useState('');
     const [enviandoModal, setEnviandoModal] = useState(false);
 
-    // ── Auth Guard ──────────────────────────────────────────
+    // Auth Guard (sin Supabase Auth)
     useEffect(() => {
         const raw = localStorage.getItem('usuario');
         if (!raw) {
@@ -102,7 +97,6 @@ export default function AdminDashboard() {
             setAdminNombre(datos.nombre);
             const muniId = datos.municipio_id ? Number(datos.municipio_id) : null;
             setAdminMunicipioId(muniId);
-            // Centrar mapa si hay coordenadas del municipio
             if (datos.latitud && datos.longitud) {
                 setViewState(prev => ({
                     ...prev,
@@ -116,11 +110,10 @@ export default function AdminDashboard() {
         }
     }, [navigate]);
 
-    // ── Carga de datos ──────────────────────────────────────
     async function cargarDatos(mId: number | null) {
         setCargando(true);
 
-        // 1. Productores
+        // 1. Productores (igual que antes)
         let queryProds = supabase
             .from('productores')
             .select(`
@@ -142,9 +135,7 @@ export default function AdminDashboard() {
             `)
             .eq('rol', 'productor')
             .order('created_at', { ascending: false });
-
         if (mId) queryProds = queryProds.eq('municipio_id', mId);
-
         const { data: prods, error: errorProds } = await queryProds;
 
         if (!errorProds && prods) {
@@ -194,31 +185,46 @@ export default function AdminDashboard() {
             setStats({ total, activos, inactivos, nahuatl, en_riesgo_alto, con_alertas });
         }
 
-        // 2. Zonas de restauración (CORREGIDO: LEFT JOIN)
+        // 2. Zonas de restauración - OPCIÓN B: obtener todas y luego municipios
         const { data: zonasData, error: errorZonas } = await supabase
             .from('zonas_restauracion')
-            .select('*, municipios!left(nombre)');
+            .select('*');
 
         if (errorZonas) {
             console.error('Error cargando zonas:', errorZonas);
             setZonas([]);
         } else if (zonasData && zonasData.length > 0) {
-            setZonas(zonasData);
-            // Centrar mapa en la primera zona
+            // Obtener nombres de municipios por separado
+            const municipioIds = [...new Set(zonasData.map(z => z.municipio_id).filter(id => id !== null))];
+            let municipiosMap: Record<number, string> = {};
+            if (municipioIds.length > 0) {
+                const { data: munis } = await supabase
+                    .from('municipios')
+                    .select('id, nombre')
+                    .in('id', municipioIds);
+                if (munis) {
+                    municipiosMap = munis.reduce((acc, m) => ({ ...acc, [m.id]: m.nombre }), {});
+                }
+            }
+            const zonasConNombre = zonasData.map(z => ({
+                ...z,
+                municipio_nombre: municipiosMap[z.municipio_id] || 'Municipio no encontrado',
+                cultivos_sugeridos: z.cultivos_sugeridos || [],
+            })) as Zona[];
+            setZonas(zonasConNombre);
             setViewState({
-                latitude: zonasData[0].latitud,
-                longitude: zonasData[0].longitud,
+                latitude: zonasConNombre[0].latitud,
+                longitude: zonasConNombre[0].longitud,
                 zoom: 9,
             });
         } else {
-            console.log('No se encontraron zonas. Verifica la tabla zonas_restauracion.');
+            console.log('No hay zonas en la tabla');
             setZonas([]);
         }
 
         setCargando(false);
     }
 
-    // ── Filtro por búsqueda ─────────────────────────────────
     useEffect(() => {
         if (!busqueda.trim()) {
             setProductoresFiltrados(productores);
@@ -246,7 +252,6 @@ export default function AdminDashboard() {
         navigate('/login');
     }
 
-    // ── Registro de productor desde zona ────────────────────
     async function registrarProductorEnZona() {
         if (!zonaSeleccionada) return;
         if (!formModal.nombre.trim()) {
@@ -327,7 +332,6 @@ export default function AdminDashboard() {
         }
     }
 
-    // ── Renderizado ─────────────────────────────────────────
     if (cargando) {
         return (
             <div className="admin-loading">
@@ -342,7 +346,6 @@ export default function AdminDashboard() {
     return (
         <div className="admin-wrapper">
             <div className="admin-container">
-                {/* Encabezado */}
                 <header className="admin-header">
                     <div className="admin-header-left">
                         <div className="admin-logo">T</div>
@@ -353,133 +356,47 @@ export default function AdminDashboard() {
                     </div>
                     <div className="admin-header-right">
                         <span className="admin-user">👤 {adminNombre}</span>
-                        <button onClick={cerrarSesion} className="admin-btn-logout">
-                            Cerrar sesión
-                        </button>
+                        <button onClick={cerrarSesion} className="admin-btn-logout">Cerrar sesión</button>
                     </div>
                 </header>
 
-                {/* Tabs */}
                 <div className="admin-tabs">
-                    <button
-                        className={`admin-tab ${vistaActual === 'productores' ? 'active' : ''}`}
-                        onClick={() => setVistaActual('productores')}
-                    >
-                        📊 Productores
-                    </button>
-                    <button
-                        className={`admin-tab ${vistaActual === 'zonas' ? 'active' : ''}`}
-                        onClick={() => setVistaActual('zonas')}
-                    >
-                        🌳 Zonas de Restauración
-                    </button>
+                    <button className={`admin-tab ${vistaActual === 'productores' ? 'active' : ''}`} onClick={() => setVistaActual('productores')}>📊 Productores</button>
+                    <button className={`admin-tab ${vistaActual === 'zonas' ? 'active' : ''}`} onClick={() => setVistaActual('zonas')}>🌳 Zonas de Restauración</button>
                 </div>
 
-                {/* Vista Productores */}
                 {vistaActual === 'productores' && (
                     <>
                         <div className="admin-stats-grid">
-                            <div className="admin-stat-card">
-                                <span className="admin-stat-num">{stats.total}</span>
-                                <span>Total</span>
-                            </div>
-                            <div className="admin-stat-card">
-                                <span className="admin-stat-num" style={{ color: '#1D9E75' }}>{stats.activos}</span>
-                                <span>Activos</span>
-                            </div>
-                            <div className="admin-stat-card">
-                                <span className="admin-stat-num" style={{ color: '#D85A30' }}>{stats.en_riesgo_alto}</span>
-                                <span>🚨 Riesgo Alto</span>
-                            </div>
-                            <div className="admin-stat-card">
-                                <span className="admin-stat-num" style={{ color: '#BA7517' }}>{stats.con_alertas}</span>
-                                <span>⚠️ Con Alertas</span>
-                            </div>
-                            <div className="admin-stat-card">
-                                <span className="admin-stat-num" style={{ color: '#b8860b' }}>{stats.nahuatl}</span>
-                                <span>Náhuatl</span>
-                            </div>
-                            <div className="admin-stat-card">
-                                <span className="admin-stat-num" style={{ color: '#555' }}>{stats.inactivos}</span>
-                                <span>Inactivos</span>
-                            </div>
+                            <div className="admin-stat-card"><span className="admin-stat-num">{stats.total}</span><span>Total</span></div>
+                            <div className="admin-stat-card"><span className="admin-stat-num" style={{ color: '#1D9E75' }}>{stats.activos}</span><span>Activos</span></div>
+                            <div className="admin-stat-card"><span className="admin-stat-num" style={{ color: '#D85A30' }}>{stats.en_riesgo_alto}</span><span>🚨 Riesgo Alto</span></div>
+                            <div className="admin-stat-card"><span className="admin-stat-num" style={{ color: '#BA7517' }}>{stats.con_alertas}</span><span>⚠️ Con Alertas</span></div>
+                            <div className="admin-stat-card"><span className="admin-stat-num" style={{ color: '#b8860b' }}>{stats.nahuatl}</span><span>Náhuatl</span></div>
+                            <div className="admin-stat-card"><span className="admin-stat-num" style={{ color: '#555' }}>{stats.inactivos}</span><span>Inactivos</span></div>
                         </div>
-
                         <div className="admin-search-bar">
-                            <input
-                                type="text"
-                                placeholder="Buscar por nombre, folio, municipio o cultivo..."
-                                value={busqueda}
-                                onChange={e => setBusqueda(e.target.value)}
-                                className="admin-search-input"
-                            />
-                            <button onClick={() => cargarDatos(adminMunicipioId)} className="admin-btn-reload">
-                                🔄 Recargar
-                            </button>
+                            <input type="text" placeholder="Buscar por nombre, folio, municipio o cultivo..." value={busqueda} onChange={e => setBusqueda(e.target.value)} className="admin-search-input" />
+                            <button onClick={() => cargarDatos(adminMunicipioId)} className="admin-btn-reload">🔄 Recargar</button>
                         </div>
-
                         <div className="admin-table-container">
                             <table className="admin-table">
-                                <thead>
-                                    <tr>
-                                        <th>Nombre</th>
-                                        <th>Folio</th>
-                                        <th>Municipio</th>
-                                        <th>Estado Cultivos</th>
-                                        <th>Alertas</th>
-                                        <th>Idioma</th>
-                                        <th>Acceso</th>
-                                        <th>Estado</th>
-                                        <th>Acción</th>
-                                    </tr>
-                                </thead>
+                                <thead><tr><th>Nombre</th><th>Folio</th><th>Municipio</th><th>Estado Cultivos</th><th>Alertas</th><th>Idioma</th><th>Acceso</th><th>Estado</th><th>Acción</th></tr></thead>
                                 <tbody>
                                     {productoresFiltrados.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={9} className="admin-empty-table">
-                                                {busqueda ? 'Sin resultados' : 'No hay productores registrados'}
-                                            </td>
-                                        </tr>
+                                        <tr><td colSpan={9} className="admin-empty-table">{busqueda ? 'Sin resultados' : 'No hay productores registrados'}</td></tr>
                                     ) : (
                                         productoresFiltrados.map((p, i) => (
                                             <tr key={p.id} className={i % 2 === 0 ? 'even' : 'odd'}>
                                                 <td>{p.nombre}</td>
                                                 <td className="folio">{p.folio}</td>
                                                 <td>{p.municipios?.nombre || '—'}</td>
-                                                <td>
-                                                    <span className={`badge riesgo-${p.estado_riesgo}`}>
-                                                        {p.estado_riesgo === 'alto' ? '🔴 Alto' : p.estado_riesgo === 'medio' ? '🟡 Medio' : '🟢 Normal'}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    {(p.alertas_activas || 0) > 0 ? (
-                                                        <div className="alertas-cell">
-                                                            <strong>{p.alertas_activas} {p.alertas_activas === 1 ? 'alerta' : 'alertas'}</strong>
-                                                            {p.cultivos_afectados?.join(', ')}
-                                                        </div>
-                                                    ) : '—'}
-                                                </td>
-                                                <td>
-                                                    <span className={`badge idioma-${p.idioma_preferido}`}>
-                                                        {p.idioma_preferido.toUpperCase()}
-                                                    </span>
-                                                </td>
-                                                <td className="acceso-icon">
-                                                    {p.tipo_acceso === 'smartphone' ? '📱' : p.tipo_acceso === 'sms' ? '📞' : '❌'}
-                                                </td>
-                                                <td>
-                                                    <span className={`badge ${p.activo ? 'activo' : 'inactivo'}`}>
-                                                        {p.activo ? '✓ Activo' : '✗ Inactivo'}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <button
-                                                        onClick={() => toggleActivoProductor(p.id, p.activo)}
-                                                        className={`btn-toggle ${p.activo ? 'desactivar' : 'activar'}`}
-                                                    >
-                                                        {p.activo ? 'Desactivar' : 'Activar'}
-                                                    </button>
-                                                </td>
+                                                <td><span className={`badge riesgo-${p.estado_riesgo}`}>{p.estado_riesgo === 'alto' ? '🔴 Alto' : p.estado_riesgo === 'medio' ? '🟡 Medio' : '🟢 Normal'}</span></td>
+                                                <td>{(p.alertas_activas || 0) > 0 ? <div className="alertas-cell"><strong>{p.alertas_activas} {p.alertas_activas === 1 ? 'alerta' : 'alertas'}</strong><br />{p.cultivos_afectados?.join(', ')}</div> : '—'}</td>
+                                                <td><span className={`badge idioma-${p.idioma_preferido}`}>{p.idioma_preferido.toUpperCase()}</span></td>
+                                                <td className="acceso-icon">{p.tipo_acceso === 'smartphone' ? '📱' : p.tipo_acceso === 'sms' ? '📞' : '❌'}</td>
+                                                <td><span className={`badge ${p.activo ? 'activo' : 'inactivo'}`}>{p.activo ? '✓ Activo' : '✗ Inactivo'}</span></td>
+                                                <td><button onClick={() => toggleActivoProductor(p.id, p.activo)} className={`btn-toggle ${p.activo ? 'desactivar' : 'activar'}`}>{p.activo ? 'Desactivar' : 'Activar'}</button></td>
                                             </tr>
                                         ))
                                     )}
@@ -489,56 +406,24 @@ export default function AdminDashboard() {
                     </>
                 )}
 
-                {/* Vista Zonas de Restauración */}
                 {vistaActual === 'zonas' && (
                     <>
                         <h2 className="admin-section-title">🌳 Zonas de Restauración Forestal</h2>
                         {!mapboxToken ? (
-                            <div className="admin-empty">
-                                <div className="admin-empty-icon">🗺️</div>
-                                <p>Error: falta la variable de entorno <code>VITE_MAPBOX_TOKEN</code></p>
-                            </div>
+                            <div className="admin-empty"><div className="admin-empty-icon">🗺️</div><p>Error: falta VITE_MAPBOX_TOKEN</p></div>
                         ) : zonas.length === 0 ? (
-                            <div className="admin-empty">
-                                <div className="admin-empty-icon">🌲</div>
-                                <p>No hay zonas de restauración registradas.</p>
-                                <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>
-                                    Verifica que la tabla <code>zonas_restauracion</code> tenga datos y que cada zona tenga un <code>municipio_id</code> válido en la tabla <code>municipios</code>.
-                                </p>
-                            </div>
+                            <div className="admin-empty"><div className="admin-empty-icon">🌲</div><p>No hay zonas de restauración registradas.</p></div>
                         ) : (
                             <>
                                 <div className="admin-map-container">
-                                    <Map
-                                        {...viewState}
-                                        onMove={(evt: any) => setViewState(evt.viewState)}
-                                        mapboxAccessToken={mapboxToken}
-                                        style={{ width: '100%', height: '100%' }}
-                                        mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
-                                    >
+                                    <Map {...viewState} onMove={(evt: any) => setViewState(evt.viewState)} mapboxAccessToken={mapboxToken} style={{ width: '100%', height: '100%' }} mapStyle="mapbox://styles/mapbox/satellite-streets-v12">
                                         {zonas.map(zona => (
                                             <Marker key={zona.id} latitude={zona.latitud} longitude={zona.longitud} anchor="bottom">
-                                                <div
-                                                    className={`marker ${zona.estado}`}
-                                                    onClick={() => {
-                                                        setZonaSeleccionada(zona);
-                                                        setMostrarPopup(true);
-                                                    }}
-                                                />
+                                                <div className={`marker ${zona.estado}`} onClick={() => { setZonaSeleccionada(zona); setMostrarPopup(true); }} />
                                             </Marker>
                                         ))}
                                         {mostrarPopup && zonaSeleccionada && (
-                                            <Popup
-                                                latitude={zonaSeleccionada.latitud}
-                                                longitude={zonaSeleccionada.longitud}
-                                                anchor="top"
-                                                onClose={() => {
-                                                    setMostrarPopup(false);
-                                                    setZonaSeleccionada(null);
-                                                }}
-                                                closeOnClick={false}
-                                                maxWidth="350px"
-                                            >
+                                            <Popup latitude={zonaSeleccionada.latitud} longitude={zonaSeleccionada.longitud} anchor="top" onClose={() => { setMostrarPopup(false); setZonaSeleccionada(null); }} closeOnClick={false} maxWidth="350px">
                                                 <div className="popup-content">
                                                     <h3>{zonaSeleccionada.nombre}</h3>
                                                     <p><strong>Programa:</strong> {zonaSeleccionada.programa}</p>
@@ -546,98 +431,48 @@ export default function AdminDashboard() {
                                                     <p><strong>Hectáreas:</strong> {zonaSeleccionada.hectareas} ha</p>
                                                     <p><strong>Apoyo mensual:</strong> ${zonaSeleccionada.apoyo_mensual_estimado?.toLocaleString('es-MX')} MXN</p>
                                                     <p><strong>Actividades:</strong> {zonaSeleccionada.actividades}</p>
-                                                    <div className="cultivos-sugeridos">
-                                                        {zonaSeleccionada.cultivos_sugeridos?.map(c => (
-                                                            <span key={c} className="cultivo-badge">{c}</span>
-                                                        ))}
-                                                    </div>
-                                                    <div className={`estado-badge ${zonaSeleccionada.estado}`}>
-                                                        {zonaSeleccionada.estado === 'disponible' ? '✓ Disponible' : '✗ Asignada'}
-                                                    </div>
-                                                    {zonaSeleccionada.estado === 'disponible' && (
-                                                        <button
-                                                            className="btn-asignar"
-                                                            onClick={() => setMostrarModal(true)}
-                                                        >
-                                                            Registrar productor aquí
-                                                        </button>
-                                                    )}
+                                                    <div className="cultivos-sugeridos">{zonaSeleccionada.cultivos_sugeridos?.map(c => <span key={c} className="cultivo-badge">{c}</span>)}</div>
+                                                    <div className={`estado-badge ${zonaSeleccionada.estado}`}>{zonaSeleccionada.estado === 'disponible' ? '✓ Disponible' : '✗ Asignada'}</div>
+                                                    {zonaSeleccionada.estado === 'disponible' && <button className="btn-asignar" onClick={() => setMostrarModal(true)}>Registrar productor aquí</button>}
                                                 </div>
                                             </Popup>
                                         )}
                                     </Map>
                                 </div>
-                                <div className="leyenda">
-                                    <span>Leyenda:</span>
-                                    <div className="leyenda-item">
-                                        <div className="circle verde" /> Disponible
-                                    </div>
-                                    <div className="leyenda-item">
-                                        <div className="circle rojo" /> Asignada
-                                    </div>
-                                </div>
+                                <div className="leyenda"><span>Leyenda:</span><div className="leyenda-item"><div className="circle verde" /> Disponible</div><div className="leyenda-item"><div className="circle rojo" /> Asignada</div></div>
                             </>
                         )}
                     </>
                 )}
 
-                {/* Modal de registro */}
                 {mostrarModal && zonaSeleccionada && (
                     <div className="modal-overlay">
                         <div className="modal-content">
                             <h2>Registrar Productor</h2>
                             <p className="modal-subtitle">{zonaSeleccionada.nombre}</p>
-
                             <label>Nombre completo *</label>
                             <input value={formModal.nombre} onChange={e => setFormModal({ ...formModal, nombre: e.target.value })} placeholder="Ej: Juan Pérez" />
-
                             <label>Teléfono (opcional)</label>
                             <input value={formModal.telefono} onChange={e => setFormModal({ ...formModal, telefono: e.target.value })} placeholder="+52..." />
-
                             <label>Idioma</label>
-                            <div className="btn-group">
-                                <button className={formModal.idioma === 'es' ? 'active' : ''} onClick={() => setFormModal({ ...formModal, idioma: 'es' })}>Español</button>
-                                <button className={formModal.idioma === 'nah' ? 'active' : ''} onClick={() => setFormModal({ ...formModal, idioma: 'nah' })}>Náhuatl</button>
-                            </div>
-
+                            <div className="btn-group"><button className={formModal.idioma === 'es' ? 'active' : ''} onClick={() => setFormModal({ ...formModal, idioma: 'es' })}>Español</button><button className={formModal.idioma === 'nah' ? 'active' : ''} onClick={() => setFormModal({ ...formModal, idioma: 'nah' })}>Náhuatl</button></div>
                             <label>Tipo de celular</label>
                             {(['smartphone', 'sms', 'sin_celular'] as const).map(tipo => (
-                                <button
-                                    key={tipo}
-                                    className={`btn-tipo ${formModal.tipoAcceso === tipo ? 'active' : ''}`}
-                                    onClick={() => setFormModal({ ...formModal, tipoAcceso: tipo })}
-                                >
+                                <button key={tipo} className={`btn-tipo ${formModal.tipoAcceso === tipo ? 'active' : ''}`} onClick={() => setFormModal({ ...formModal, tipoAcceso: tipo })}>
                                     {tipo === 'smartphone' ? '📱 Smartphone (WhatsApp)' : tipo === 'sms' ? '📞 Solo SMS' : '❌ Sin celular'}
                                 </button>
                             ))}
-
                             <label>Cultivos a sembrar *</label>
                             {zonaSeleccionada.cultivos_sugeridos?.map(cultivo => (
                                 <label key={cultivo} className="checkbox-cultivo">
-                                    <input
-                                        type="checkbox"
-                                        checked={formModal.cultivosSeleccionados.includes(cultivo)}
-                                        onChange={e => {
-                                            if (e.target.checked) {
-                                                setFormModal({ ...formModal, cultivosSeleccionados: [...formModal.cultivosSeleccionados, cultivo] });
-                                            } else {
-                                                setFormModal({ ...formModal, cultivosSeleccionados: formModal.cultivosSeleccionados.filter(c => c !== cultivo) });
-                                            }
-                                        }}
-                                    />
+                                    <input type="checkbox" checked={formModal.cultivosSeleccionados.includes(cultivo)} onChange={e => { if (e.target.checked) setFormModal({ ...formModal, cultivosSeleccionados: [...formModal.cultivosSeleccionados, cultivo] }); else setFormModal({ ...formModal, cultivosSeleccionados: formModal.cultivosSeleccionados.filter(c => c !== cultivo) }); }} />
                                     {cultivo}
                                 </label>
                             ))}
-
                             {mensajeModal && <div className="modal-mensaje">{mensajeModal}</div>}
-
                             <div className="modal-buttons">
-                                <button onClick={registrarProductorEnZona} disabled={enviandoModal} className="btn-registrar">
-                                    {enviandoModal ? 'Registrando...' : 'Registrar'}
-                                </button>
-                                <button onClick={() => { setMostrarModal(false); setMensajeModal(''); }} disabled={enviandoModal} className="btn-cancelar">
-                                    Cancelar
-                                </button>
+                                <button onClick={registrarProductorEnZona} disabled={enviandoModal} className="btn-registrar">{enviandoModal ? 'Registrando...' : 'Registrar'}</button>
+                                <button onClick={() => { setMostrarModal(false); setMensajeModal(''); }} disabled={enviandoModal} className="btn-cancelar">Cancelar</button>
                             </div>
                         </div>
                     </div>
