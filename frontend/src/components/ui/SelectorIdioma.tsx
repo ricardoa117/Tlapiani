@@ -24,7 +24,7 @@ export default function SelectorIdioma({ value, onChange }: SelectorIdiomaProps)
                 }}
                 onClick={() => onChange('nah')}
             >
-                🌽 Náhuatl
+                 Náhuatl
             </button>
         </div>
     )
