@@ -194,20 +194,26 @@ export default function AdminDashboard() {
             setStats({ total, activos, inactivos, nahuatl, en_riesgo_alto, con_alertas });
         }
 
-        // 2. Zonas de restauración
-        let queryZonas = supabase.from('zonas_restauracion').select('*, municipios(nombre)');
-        if (mId) queryZonas = queryZonas.eq('municipio_id', mId);
+        // 2. Zonas de restauración (CORREGIDO: LEFT JOIN)
+        let queryZonas = supabase
+            .from('zonas_restauracion')
+            .select('*, municipios!left(nombre)');
 
-        const { data: zonasData } = await queryZonas;
-        if (zonasData && zonasData.length > 0) {
+        const { data: zonasData, error: errorZonas } = await queryZonas;
+
+        if (errorZonas) {
+            console.error('Error cargando zonas:', errorZonas);
+            setZonas([]);
+        } else if (zonasData && zonasData.length > 0) {
             setZonas(zonasData);
-            // Centrar mapa en la primera zona
+            // Centrar mapa en la primera zona (si hay)
             setViewState({
                 latitude: zonasData[0].latitud,
                 longitude: zonasData[0].longitud,
                 zoom: 9,
             });
         } else {
+            console.log('No se encontraron zonas. Verifica que la tabla zonas_restauracion tenga datos y que los municipio_id existan.');
             setZonas([]);
         }
 
@@ -427,7 +433,7 @@ export default function AdminDashboard() {
                                         <th>Acceso</th>
                                         <th>Estado</th>
                                         <th>Acción</th>
-                                    </tr>
+                                    </td>
                                 </thead>
                                 <tbody>
                                     {productoresFiltrados.length === 0 ? (
@@ -497,7 +503,10 @@ export default function AdminDashboard() {
                         ) : zonas.length === 0 ? (
                             <div className="admin-empty">
                                 <div className="admin-empty-icon">🌲</div>
-                                <p>No hay zonas de restauración disponibles en tu municipio.</p>
+                                <p>No hay zonas de restauración registradas.</p>
+                                <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>
+                                    Verifica que la tabla <code>zonas_restauracion</code> tenga datos y que cada zona tenga un <code>municipio_id</code> válido en la tabla <code>municipios</code>.
+                                </p>
                             </div>
                         ) : (
                             <>
