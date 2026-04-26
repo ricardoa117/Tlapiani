@@ -64,7 +64,7 @@ export default function AdminUsers() {
                 </div>
                 <input
                     style={styles.search}
-                    placeholder="🔍 Buscar..."
+                    placeholder=" Buscar..."
                     value={busqueda}
                     onChange={e => setBusqueda(e.target.value)}
                 />
@@ -84,15 +84,15 @@ export default function AdminUsers() {
                                     </span>
                                 </div>
                                 <h3 style={styles.nombre}>{p.nombre} {p.apellidos}</h3>
-                                <p style={styles.info}>📍 {p.municipio}, {p.estado}</p>
-                                <p style={styles.info}>📱 {p.telefono || '—'}</p>
-                                <p style={styles.info}>🌐 {p.tipo_acceso} · {p.idioma_preferido === 'nah' ? 'Náhuatl' : '🇲🇽 Español'}</p>
+                                <p style={styles.info}> {p.municipio}, {p.estado}</p>
+                                <p style={styles.info}> {p.telefono || '—'}</p>
+                                <p style={styles.info}> {p.tipo_acceso} · {p.idioma_preferido === 'nah' ? 'Náhuatl' : '🇲🇽 Español'}</p>
                                 <div style={styles.cardActions}>
                                     <button
                                         style={styles.btnEliminar}
                                         onClick={() => eliminar(p.id)}
                                     >
-                                        🗑 Eliminar
+                                         Eliminar
                                     </button>
                                 </div>
                             </div>
