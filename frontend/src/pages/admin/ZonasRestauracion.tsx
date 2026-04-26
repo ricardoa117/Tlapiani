@@ -1,10 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import Map, { Marker, Popup } from 'react-map-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '../../lib/supabase';
+import './ZonasRestauracion.css';
+import zonasDataJson from '../../../../backend/data/zonas_restauracion.json';
 
+// Definir el tipo para el JSON importado
 interface Zona {
     id: string;
     nombre: string;
     municipio_id: number;
+    municipio_nombre: string;
     latitud: number;
     longitud: number;
     hectareas: number;
@@ -15,15 +21,24 @@ interface Zona {
     cultivos_sugeridos: string[];
     apoyo_mensual_estimado: number;
     estado: 'disponible' | 'asignada';
-    municipio_nombre?: string;
 }
 
+const datosEstaticos = zonasDataJson as Zona[];
+
 export default function ZonasRestauracion() {
-    const [zonas, setZonas] = useState<Zona[]>([]);
-    const [cargando, setCargando] = useState(true);
+    // Usar el JSON estático como estado inicial
+    const [zonas, setZonas] = useState<Zona[]>(datosEstaticos);
     const [zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
+    const [mostrarPopup, setMostrarPopup] = useState(false);
     const [mostrarModal, setMostrarModal] = useState(false);
-    
+
+    // Vista inicial centrada en Puebla
+    const [viewState, setViewState] = useState({
+        latitude: 19.0,
+        longitude: -97.5,
+        zoom: 7,
+    });
+
     const [formModal, setFormModal] = useState({
         nombre: '',
         telefono: '',
@@ -31,45 +46,11 @@ export default function ZonasRestauracion() {
         tipoAcceso: 'smartphone' as 'smartphone' | 'sms' | 'sin_celular',
         cultivosSeleccionados: [] as string[],
     });
+    
     const [mensajeModal, setMensajeModal] = useState('');
     const [enviandoModal, setEnviandoModal] = useState(false);
 
-    useEffect(() => {
-        cargarZonas();
-    }, []);
-
-    async function cargarZonas() {
-        setCargando(true);
-        const { data: zonasData, error: errorZonas } = await supabase
-            .from('zonas_restauracion')
-            .select('*');
-
-        if (errorZonas) {
-            console.error('Error cargando zonas:', errorZonas);
-            setZonas([]);
-        } else if (zonasData && zonasData.length > 0) {
-            const municipioIds = [...new Set(zonasData.map(z => z.municipio_id).filter(id => id !== null))];
-            let municipiosMap: Record<number, string> = {};
-            if (municipioIds.length > 0) {
-                const { data: munis } = await supabase
-                    .from('municipios')
-                    .select('id, nombre')
-                    .in('id', municipioIds);
-                if (munis) {
-                    municipiosMap = munis.reduce((acc, m) => ({ ...acc, [m.id]: m.nombre }), {});
-                }
-            }
-            const zonasConNombre = zonasData.map(z => ({
-                ...z,
-                municipio_nombre: municipiosMap[z.municipio_id] || 'Municipio no encontrado',
-                cultivos_sugeridos: z.cultivos_sugeridos || [],
-            })) as Zona[];
-            setZonas(zonasConNombre);
-        } else {
-            setZonas([]);
-        }
-        setCargando(false);
-    }
+    const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
 
     async function registrarProductorEnZona() {
         if (!zonaSeleccionada) return;
@@ -88,6 +69,7 @@ export default function ZonasRestauracion() {
         try {
             const folio = `TLP-${Date.now().toString(36).toUpperCase()}`;
 
+            // 1. Insertar productor
             const { data: nuevoProd, error: errProd } = await supabase
                 .from('productores')
                 .insert({
@@ -106,6 +88,7 @@ export default function ZonasRestauracion() {
                 .single();
             if (errProd) throw errProd;
 
+            // 2. Insertar parcela
             const { data: nuevaParcela, error: errParcela } = await supabase
                 .from('parcelas')
                 .insert({
@@ -121,6 +104,7 @@ export default function ZonasRestauracion() {
                 .single();
             if (errParcela) throw errParcela;
 
+            // 3. Insertar lotes_cultivo
             const hectareasPorCultivo = zonaSeleccionada.hectareas / formModal.cultivosSeleccionados.length;
             const hoy = new Date().toISOString().split('T')[0];
             const lotesInserts = formModal.cultivosSeleccionados.map(cultivo =>
@@ -134,16 +118,33 @@ export default function ZonasRestauracion() {
             );
             await Promise.all(lotesInserts);
 
-            await supabase.from('zonas_restauracion').update({ estado: 'asignada' }).eq('id', zonaSeleccionada.id);
+            // 4. Actualizar estado local (JSON estático modificado en memoria)
+            setZonas(prevZonas => 
+                prevZonas.map(z => 
+                    z.id === zonaSeleccionada.id ? { ...z, estado: 'asignada' } : z
+                )
+            );
 
-            setMensajeModal(`✅ Productor registrado exitosamente.\n\nFolio: ${folio}\nContraseña temporal: cambiame123`);
+            // 5. Intentar actualizar Supabase como respaldo (sin detener el flujo si falla)
+            const { error: errUpdate } = await supabase
+                .from('zonas_restauracion')
+                .update({ estado: 'asignada' })
+                .eq('id', zonaSeleccionada.id);
+            
+            if (errUpdate) {
+                console.warn('⚠️ No se pudo actualizar zonas_restauracion en Supabase. El estado local se ha actualizado.', errUpdate);
+            }
+
+            setMensajeModal(`✅ Productor registrado exitosamente.\n\nFolio: ${folio}\nContraseña: cambiame123`);
+            
             setTimeout(() => {
                 setMostrarModal(false);
+                setMostrarPopup(false);
                 setZonaSeleccionada(null);
                 setFormModal({ nombre: '', telefono: '', idioma: 'es', tipoAcceso: 'smartphone', cultivosSeleccionados: [] });
                 setMensajeModal('');
-                cargarZonas();
-            }, 4000);
+            }, 3500);
+            
         } catch (err: any) {
             setMensajeModal(`❌ Error: ${err.message}`);
         } finally {
@@ -151,67 +152,99 @@ export default function ZonasRestauracion() {
         }
     }
 
-    if (cargando) {
-        return <div style={{ textAlign: 'center', padding: '2rem', color: '#b8860b' }}>Cargando zonas de restauración...</div>;
-    }
-
     return (
-        <div>
+        <div className="zonas-restauracion-container">
             <h2 className="admin-section-title">🌳 Zonas de Restauración Forestal</h2>
             
-            {zonas.length === 0 ? (
+            {!mapboxToken ? (
+                <div className="admin-empty">
+                    <div className="admin-empty-icon">🗺️</div>
+                    <p>Error: falta VITE_MAPBOX_TOKEN en variables de entorno.</p>
+                </div>
+            ) : zonas.length === 0 ? (
                 <div className="admin-empty">
                     <div className="admin-empty-icon">🌲</div>
-                    <p>No hay zonas de restauración disponibles.</p>
+                    <p>No hay zonas de restauración en el archivo JSON.</p>
                 </div>
             ) : (
-                <div className="admin-table-container">
-                    <table className="admin-table">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Programa</th>
-                                <th>Hectáreas</th>
-                                <th>Apoyo Mensual</th>
-                                <th>Estado</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {zonas.map((zona, i) => (
-                                <tr key={zona.id} className={i % 2 === 0 ? 'even' : 'odd'}>
-                                    <td>{zona.nombre}</td>
-                                    <td>{zona.programa}</td>
-                                    <td>{zona.hectareas} ha</td>
-                                    <td>${zona.apoyo_mensual_estimado?.toLocaleString('es-MX')} MXN</td>
-                                    <td>
-                                        <span className={`badge ${zona.estado === 'disponible' ? 'activo' : 'inactivo'}`}>
-                                            {zona.estado === 'disponible' ? '✓ Disponible' : '✗ Asignada'}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {zona.estado === 'disponible' ? (
+                <>
+                    <div className="admin-map-container">
+                        <Map 
+                            {...viewState} 
+                            onMove={(evt: any) => setViewState(evt.viewState)} 
+                            mapboxAccessToken={mapboxToken} 
+                            style={{ width: '100%', height: '100%' }} 
+                            mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
+                        >
+                            {zonas.map(zona => (
+                                <Marker key={zona.id} latitude={zona.latitud} longitude={zona.longitud} anchor="bottom">
+                                    <div 
+                                        className={`marker ${zona.estado}`} 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setZonaSeleccionada(zona);
+                                            setMostrarPopup(true);
+                                        }} 
+                                    />
+                                </Marker>
+                            ))}
+                            
+                            {mostrarPopup && zonaSeleccionada && (
+                                <Popup 
+                                    latitude={zonaSeleccionada.latitud} 
+                                    longitude={zonaSeleccionada.longitud} 
+                                    anchor="top" 
+                                    onClose={() => { setMostrarPopup(false); setZonaSeleccionada(null); }} 
+                                    closeOnClick={false} 
+                                    maxWidth="350px"
+                                >
+                                    <div className="popup-content">
+                                        <h3>{zonaSeleccionada.nombre}</h3>
+                                        <p><strong>Programa:</strong> {zonaSeleccionada.programa}</p>
+                                        <p><strong>Organización:</strong> {zonaSeleccionada.organizacion}</p>
+                                        <p><strong>Hectáreas:</strong> {zonaSeleccionada.hectareas} ha</p>
+                                        <p><strong>Apoyo mensual:</strong> ${zonaSeleccionada.apoyo_mensual_estimado?.toLocaleString('es-MX')} MXN</p>
+                                        <p><strong>Actividades:</strong> {zonaSeleccionada.actividades}</p>
+                                        
+                                        <div className="cultivos-sugeridos">
+                                            {zonaSeleccionada.cultivos_sugeridos?.map(c => 
+                                                <span key={c} className="cultivo-badge">{c}</span>
+                                            )}
+                                        </div>
+                                        
+                                        <div className={`estado-badge ${zonaSeleccionada.estado}`}>
+                                            {zonaSeleccionada.estado === 'disponible' ? '✓ Disponible' : '✗ Asignada'}
+                                        </div>
+                                        
+                                        {zonaSeleccionada.estado === 'disponible' && (
                                             <button 
-                                                className="btn-toggle activar"
+                                                className="btn-asignar" 
                                                 onClick={() => {
-                                                    setZonaSeleccionada(zona);
+                                                    setFormModal({
+                                                        ...formModal,
+                                                        cultivosSeleccionados: zonaSeleccionada.cultivos_sugeridos || []
+                                                    });
                                                     setMostrarModal(true);
                                                 }}
                                             >
-                                                Asignar productor
+                                                Asignar productor aquí
                                             </button>
-                                        ) : (
-                                            <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>Asignada</span>
                                         )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                                    </div>
+                                </Popup>
+                            )}
+                        </Map>
+                    </div>
+                    
+                    <div className="leyenda">
+                        <span>Leyenda:</span>
+                        <div className="leyenda-item"><div className="circle verde" /> Disponible</div>
+                        <div className="leyenda-item"><div className="circle rojo" /> Asignada</div>
+                    </div>
+                </>
             )}
 
-            {/* Modal de registro */}
+            {/* Modal de asignación */}
             {mostrarModal && zonaSeleccionada && (
                 <div className="modal-overlay">
                     <div className="modal-content">
@@ -219,10 +252,18 @@ export default function ZonasRestauracion() {
                         <p className="modal-subtitle">{zonaSeleccionada.nombre}</p>
 
                         <label>Nombre completo *</label>
-                        <input value={formModal.nombre} onChange={e => setFormModal({ ...formModal, nombre: e.target.value })} placeholder="Ej: Juan Pérez" />
+                        <input 
+                            value={formModal.nombre} 
+                            onChange={e => setFormModal({ ...formModal, nombre: e.target.value })} 
+                            placeholder="Ej: Juan Pérez" 
+                        />
 
                         <label>Teléfono (opcional)</label>
-                        <input value={formModal.telefono} onChange={e => setFormModal({ ...formModal, telefono: e.target.value })} placeholder="+52..." />
+                        <input 
+                            value={formModal.telefono} 
+                            onChange={e => setFormModal({ ...formModal, telefono: e.target.value })} 
+                            placeholder="+52..." 
+                        />
 
                         <label>Idioma</label>
                         <div className="btn-group">
@@ -265,7 +306,15 @@ export default function ZonasRestauracion() {
                             <button onClick={registrarProductorEnZona} disabled={enviandoModal} className="btn-registrar">
                                 {enviandoModal ? 'Registrando...' : 'Registrar'}
                             </button>
-                            <button onClick={() => { setMostrarModal(false); setMensajeModal(''); setZonaSeleccionada(null); }} disabled={enviandoModal} className="btn-cancelar">
+                            <button 
+                                onClick={() => { 
+                                    setMostrarModal(false); 
+                                    setMensajeModal(''); 
+                                    setFormModal({ ...formModal, cultivosSeleccionados: [] }); 
+                                }} 
+                                disabled={enviandoModal} 
+                                className="btn-cancelar"
+                            >
                                 Cancelar
                             </button>
                         </div>

@@ -1,0 +1,59 @@
+[
+    {
+        "id": "a1b2c3d4-1111-4000-8000-000000000001",
+        "nombre": "Bosque de Niebla – Teziutlán",
+        "municipio_id": 1,
+        "municipio_nombre": "Teziutlán",
+        "latitud": 19.8200,
+        "longitud": -97.3700,
+        "hectareas": 2.5,
+        "programa": "Sembrando Vida",
+        "organizacion": "Bienestar",
+        "descripcion": "Restauración de cafetal bajo sombra en zona de niebla. Se busca recuperar especies nativas y generar empleo local.",
+        "actividades": "Plantar árboles nativos, manejo agroforestal, mantenimiento de cafetal, cercado perimetral.",
+        "cultivos_sugeridos": [
+            "café",
+            "aguacate"
+        ],
+        "apoyo_mensual_estimado": 6450,
+        "estado": "disponible"
+    },
+    {
+        "id": "a1b2c3d4-2222-4000-8000-000000000002",
+        "nombre": "Sierra Norte – Zacatlán",
+        "municipio_id": 2,
+        "municipio_nombre": "Zacatlán",
+        "latitud": 20.0100,
+        "longitud": -97.9600,
+        "hectareas": 3.0,
+        "programa": "PRONAFOR",
+        "organizacion": "CONAFOR",
+        "descripcion": "Reforestación con pino y oyamel en zona degradada por tala ilegal.",
+        "actividades": "Plantar coníferas, obras de conservación de suelo, vigilancia comunitaria.",
+        "cultivos_sugeridos": [
+            "pino",
+            "oyamel"
+        ],
+        "apoyo_mensual_estimado": 5800,
+        "estado": "disponible"
+    },
+    {
+        "id": "a1b2c3d4-3333-4000-8000-000000000003",
+        "nombre": "Mixteca – Huajuapan",
+        "municipio_id": 3,
+        "municipio_nombre": "Huajuapan de León",
+        "latitud": 17.8100,
+        "longitud": -97.7800,
+        "hectareas": 1.8,
+        "programa": "CONAFOR",
+        "organizacion": "CONAFOR",
+        "descripcion": "Recuperación de suelo erosionado con maguey y nopal para forraje.",
+        "actividades": "Siembra de maguey, barreras vivas, captación de agua de lluvia.",
+        "cultivos_sugeridos": [
+            "maguey",
+            "nopal"
+        ],
+        "apoyo_mensual_estimado": 5200,
+        "estado": "asignada"
+    }
+]
