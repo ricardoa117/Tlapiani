@@ -1,397 +1,1286 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
-import './ProductorDashboard.css'
+// src/pages/AdminDashboard.tsx
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import Map, { Marker, Popup } from 'react-map-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
-// ── Tipos ─────────────────────────────────────────────────────────────────────
-
-interface Usuario {
-    id: string
-    folio: string
-    nombre: string
-    idioma_preferido: 'es' | 'nah'
-    tipo_acceso: string
-    rol: string
+interface Productor {
+    id: string;
+    folio: string;
+    nombre: string;
+    telefono: string | null;
+    idioma_preferido: 'es' | 'nah' | 'tot';
+    tipo_acceso: 'smartphone' | 'sms' | 'sin_celular';
+    activo: boolean;
+    municipios?: { nombre: string };
+    // Datos de monitoreo
+    estado_riesgo?: 'bajo' | 'medio' | 'alto';
+    alertas_activas?: number;
+    cultivos_afectados?: string[];
+    ultima_alerta?: string;
 }
 
-interface Monitoreo {
-    id: string
-    lote_id: string
-    fecha: string
-    temperatura_max?: number
-    temperatura_min?: number
-    humedad_relativa?: number
-    precipitacion?: number
-    ndvi?: number
-    estado_semaforo?: 'verde' | 'amarillo' | 'rojo'
-    alerta_plaga?: boolean
-    plaga_probable?: string
-    recomendacion_texto_es?: string
-    recomendacion_texto_nah?: string
-    lotes_cultivo?: {
-        id: string
-        cultivo: string
-        parcela_id: string
-        parcelas?: {
-            id: string
-            nombre: string
-            productor_id: string
-        }
-    }
+interface Zona {
+    id: string;
+    nombre: string;
+    municipio_id: number;
+    latitud: number;
+    longitud: number;
+    hectareas: number;
+    programa: string;
+    organizacion: string;
+    descripcion: string;
+    actividades: string;
+    cultivos_sugeridos: string[];
+    apoyo_mensual_estimado: number;
+    estado: 'disponible' | 'asignada';
+    municipios?: { nombre: string };
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const CULTIVO_EMOJI: Record<string, string> = {
-    maiz: '', frijol: '', aguacate: '',
-    cafe: '', calabaza: '', hortalizas: '',
+interface MonitoreoResumen {
+    productor_id: string;
+    total_lotes: number;
+    lotes_en_riesgo: number;
+    alertas_activas: number;
+    estado_general: 'bajo' | 'medio' | 'alto';
+    cultivos_afectados: string[];
+    ultima_fecha_monitoreo: string;
 }
 
-const SEMAFORO_LABEL: Record<string, string> = {
-    verde: 'Favorable', amarillo: 'Atención', rojo: 'Alerta',
-}
+export default function AdminDashboard() {
+    const navigate = useNavigate();
+    const [adminNombre, setAdminNombre] = useState('Administrador');
+    const [productores, setProductores] = useState<Productor[]>([]);
+    const [productoresFiltrados, setProductoresFiltrados] = useState<Productor[]>([]);
+    const [busqueda, setBusqueda] = useState('');
+    const [cargando, setCargando] = useState(true);
 
-function ndviColor(ndvi: number): string {
-    if (ndvi >= 0.6) return '#22c55e'
-    if (ndvi >= 0.3) return '#f59e0b'
-    return '#ef4444'
-}
+    // Estadísticas
+    const [stats, setStats] = useState({
+        total: 0,
+        activos: 0,
+        inactivos: 0,
+        nahuatl: 0,
+        en_riesgo_alto: 0,
+        con_alertas: 0
+    });
 
-function saludar(): string {
-    const h = new Date().getHours()
-    if (h < 12) return 'Buenos días'
-    if (h < 19) return 'Buenas tardes'
-    return 'Buenas noches'
-}
+    // Zonas de restauración
+    const [zonas, setZonas] = useState<Zona[]>([]);
+    const [zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
+    const [mostrarPopup, setMostrarPopup] = useState(false);
+    const [mostrarModal, setMostrarModal] = useState(false);
+    const [vistaActual, setVistaActual] = useState<'productores' | 'zonas'>('productores');
 
-function formatFecha(fecha: string): string {
-    return new Date(fecha).toLocaleDateString('es-MX', {
-        day: '2-digit', month: 'short', year: 'numeric',
-    })
-}
+    // Viewport del mapa
+    const [viewState, setViewState] = useState({
+        latitude: 19.0414,
+        longitude: -98.2063,
+        zoom: 9
+    });
 
-// ── Componente ─────────────────────────────────────────────────────────────────
+    // Formulario modal
+    const [formModal, setFormModal] = useState({
+        nombre: '',
+        telefono: '',
+        idioma: 'es' as 'es' | 'nah',
+        tipoAcceso: 'smartphone' as 'smartphone' | 'sms' | 'sin_celular',
+        cultivosSeleccionados: [] as string[]
+    });
+    const [mensajeModal, setMensajeModal] = useState('');
+    const [enviandoModal, setEnviandoModal] = useState(false);
 
-export default function ProductorDashboard() {
-    const navigate = useNavigate()
-    const [usuario, setUsuario] = useState<Usuario | null>(null)
-    const [monitoreos, setMonitoreos] = useState<Monitoreo[]>([])
-    const [loading, setLoading] = useState(true)
-    const [errorMsg, setErrorMsg] = useState('')
-
+    // Verificar sesión
     useEffect(() => {
-        const raw = localStorage.getItem('usuario')
-        if (!raw) { navigate('/login'); return }
+        const sesion = localStorage.getItem('tlapiani_sesion');
+        if (!sesion) {
+            navigate('/login');
+            return;
+        }
 
-        let user: Usuario
-        try { user = JSON.parse(raw) } catch { navigate('/login'); return }
+        const datos = JSON.parse(sesion);
+        if (datos.rol !== 'admin') {
+            navigate('/dashboard');
+            return;
+        }
 
-        if (!user?.id) { navigate('/login'); return }
-        if (user.rol === 'admin') { navigate('/admin/dashboard'); return }
+        setAdminNombre(datos.nombre);
+        cargarDatos();
+    }, [navigate]);
 
-        setUsuario(user)
-        cargarMonitoreos(user.id)
-    }, [])
+    async function cargarDatos() {
+        setCargando(true);
 
-    const cargarMonitoreos = async (productorId: string) => {
-        setLoading(true)
-        setErrorMsg('')
-
-        const { data, error } = await supabase
-            .from('monitoreo_lote')
+        // 1. Cargar productores con sus parcelas y monitoreo
+        const { data: prods, error: errorProds } = await supabase
+            .from('productores')
             .select(`
-                *,
-                lotes_cultivo!inner(
-                    id, cultivo, parcela_id,
-                    parcelas!inner( id, nombre, productor_id )
-                )
-            `)
-            .eq('lotes_cultivo.parcelas.productor_id', productorId)
-            .order('fecha', { ascending: false })
-            .limit(10)
+        *,
+        municipios(nombre),
+        parcelas(
+          id,
+          lotes_cultivo(
+            id,
+            cultivo,
+            monitoreo_lote(
+              estado_semaforo,
+              alerta_plaga,
+              plaga_probable,
+              fecha
+            )
+          )
+        )
+      `)
+            .eq('rol', 'productor')
+            .order('created_at', { ascending: false });
+
+        if (errorProds) {
+            console.error('Error cargando productores:', errorProds);
+        } else {
+            // Procesar datos de monitoreo
+            const productoresConMonitoreo = (prods || []).map(p => {
+                let alertasActivas = 0;
+                let lotesEnRiesgo = 0;
+                let cultivosAfectados = new Set<string>();
+                let ultimaAlerta = '';
+
+                // Analizar todas las parcelas y lotes
+                p.parcelas?.forEach((parcela: any) => {
+                    parcela.lotes_cultivo?.forEach((lote: any) => {
+                        // Obtener el monitoreo más reciente
+                        const monitoreoReciente = lote.monitoreo_lote?.[0];
+                        if (monitoreoReciente) {
+                            if (monitoreoReciente.alerta_plaga) {
+                                alertasActivas++;
+                                cultivosAfectados.add(lote.cultivo);
+                                ultimaAlerta = monitoreoReciente.plaga_probable || 'Alerta activa';
+                            }
+                            if (monitoreoReciente.estado_semaforo === 'rojo') {
+                                lotesEnRiesgo++;
+                            }
+                        }
+                    });
+                });
+
+                // Determinar estado de riesgo general
+                let estado_riesgo: 'bajo' | 'medio' | 'alto' = 'bajo';
+                if (alertasActivas > 0 || lotesEnRiesgo > 0) {
+                    estado_riesgo = lotesEnRiesgo >= 2 ? 'alto' : 'medio';
+                }
+
+                return {
+                    ...p,
+                    estado_riesgo,
+                    alertas_activas: alertasActivas,
+                    cultivos_afectados: Array.from(cultivosAfectados),
+                    ultima_alerta: ultimaAlerta
+                };
+            });
+
+            setProductores(productoresConMonitoreo);
+            setProductoresFiltrados(productoresConMonitoreo);
+
+            // Calcular estadísticas
+            const total = productoresConMonitoreo.length;
+            const activos = productoresConMonitoreo.filter(p => p.activo).length;
+            const inactivos = total - activos;
+            const nahuatl = productoresConMonitoreo.filter(p => p.idioma_preferido === 'nah').length;
+            const en_riesgo_alto = productoresConMonitoreo.filter(p => p.estado_riesgo === 'alto').length;
+            const con_alertas = productoresConMonitoreo.filter(p => (p.alertas_activas || 0) > 0).length;
+
+            setStats({ total, activos, inactivos, nahuatl, en_riesgo_alto, con_alertas });
+        }
+
+        // 2. Cargar zonas de restauración
+        const { data: zonasData, error: errorZonas } = await supabase
+            .from('zonas_restauracion')
+            .select('*, municipios(nombre)');
+
+        if (!errorZonas && zonasData && zonasData.length > 0) {
+            setZonas(zonasData);
+
+            // Centrar mapa en la primera zona disponible
+            const primeraZona = zonasData[0];
+            setViewState({
+                latitude: primeraZona.latitud,
+                longitude: primeraZona.longitud,
+                zoom: 9
+            });
+        }
+
+        setCargando(false);
+    }
+
+    // Filtrar productores por búsqueda
+    useEffect(() => {
+        if (!busqueda.trim()) {
+            setProductoresFiltrados(productores);
+            return;
+        }
+
+        const termino = busqueda.toLowerCase();
+        const filtrados = productores.filter(p =>
+            p.nombre.toLowerCase().includes(termino) ||
+            p.folio.toLowerCase().includes(termino) ||
+            p.municipios?.nombre.toLowerCase().includes(termino) ||
+            p.cultivos_afectados?.some(c => c.toLowerCase().includes(termino))
+        );
+        setProductoresFiltrados(filtrados);
+    }, [busqueda, productores]);
+
+    async function toggleActivoProductor(id: string, activoActual: boolean) {
+        const { error } = await supabase
+            .from('productores')
+            .update({ activo: !activoActual })
+            .eq('id', id);
 
         if (error) {
-            setErrorMsg('No se pudieron cargar los monitoreos. Intenta de nuevo.')
-            console.error(error)
-        } else {
-            setMonitoreos((data as unknown as Monitoreo[]) || [])
+            console.error('Error actualizando productor:', error);
+            alert('Error al actualizar el estado del productor');
+            return;
         }
-        setLoading(false)
+
+        cargarDatos();
     }
 
-    const cerrarSesion = () => {
-        localStorage.removeItem('usuario')
-        navigate('/login')
+    function cerrarSesion() {
+        localStorage.removeItem('tlapiani_sesion');
+        navigate('/login');
     }
 
-    // ── Estadísticas rápidas ─────────────────────────────────────────────────
+    async function registrarProductorEnZona() {
+        if (!zonaSeleccionada) return;
 
-    const alertasActivas = monitoreos.filter(m => m.alerta_plaga).length
-    const enRojo = monitoreos.filter(m => m.estado_semaforo === 'rojo').length
-    const parcelasUnicas = new Set(
-        monitoreos.map(m => m.lotes_cultivo?.parcelas?.nombre).filter(Boolean)
-    ).size
+        // Validación
+        if (!formModal.nombre.trim()) {
+            setMensajeModal('❌ El nombre es obligatorio');
+            return;
+        }
 
-    if (!usuario) return null
+        if (formModal.cultivosSeleccionados.length === 0) {
+            setMensajeModal('❌ Selecciona al menos un cultivo');
+            return;
+        }
+
+        setEnviandoModal(true);
+        setMensajeModal('');
+
+        try {
+            // 1. Generar folio
+            const timestamp = Date.now().toString(36).toUpperCase();
+            const folio = `TLP-${timestamp}`;
+
+            // 2. Crear productor
+            const { data: nuevoProductor, error: errorProductor } = await supabase
+                .from('productores')
+                .insert({
+                    folio,
+                    nombre: formModal.nombre,
+                    telefono: formModal.telefono || null,
+                    municipio_id: zonaSeleccionada.municipio_id,
+                    idioma_preferido: formModal.idioma,
+                    tipo_acceso: formModal.tipoAcceso,
+                    password: 'cambiame123',
+                    rol: 'productor',
+                    activo: true,
+                    registrado_por: 'admin_zona_restauracion'
+                })
+                .select()
+                .single();
+
+            if (errorProductor) throw errorProductor;
+
+            // 3. Crear parcela
+            const { data: nuevaParcela, error: errorParcela } = await supabase
+                .from('parcelas')
+                .insert({
+                    productor_id: nuevoProductor.id,
+                    nombre: `${zonaSeleccionada.nombre} – Asignado`,
+                    latitud: zonaSeleccionada.latitud,
+                    longitud: zonaSeleccionada.longitud,
+                    municipio_id: zonaSeleccionada.municipio_id,
+                    hectareas: zonaSeleccionada.hectareas,
+                    zona_id: zonaSeleccionada.id
+                })
+                .select()
+                .single();
+
+            if (errorParcela) throw errorParcela;
+
+            // 4. Crear lotes de cultivo
+            const hectareasPorCultivo = zonaSeleccionada.hectareas / formModal.cultivosSeleccionados.length;
+            const hoy = new Date().toISOString().split('T')[0];
+
+            const lotesPromises = formModal.cultivosSeleccionados.map(cultivo =>
+                supabase.from('lotes_cultivo').insert({
+                    parcela_id: nuevaParcela.id,
+                    cultivo: cultivo.toLowerCase(),
+                    hectareas: Math.round(hectareasPorCultivo * 100) / 100,
+                    etapa_fenologica: 'vegetativa',
+                    fecha_siembra: hoy
+                })
+            );
+
+            await Promise.all(lotesPromises);
+
+            // 5. Actualizar zona a asignada
+            await supabase
+                .from('zonas_restauracion')
+                .update({ estado: 'asignada' })
+                .eq('id', zonaSeleccionada.id);
+
+            setMensajeModal(`✅ Productor registrado exitosamente.\n\nFolio: ${folio}\nContraseña temporal: cambiame123\n\nEl productor ya puede iniciar sesión y comenzará a recibir monitoreo satelital automático.`);
+
+            setTimeout(() => {
+                setMostrarModal(false);
+                setMostrarPopup(false);
+                setFormModal({
+                    nombre: '',
+                    telefono: '',
+                    idioma: 'es',
+                    tipoAcceso: 'smartphone',
+                    cultivosSeleccionados: []
+                });
+                setMensajeModal('');
+                cargarDatos();
+            }, 4000);
+
+        } catch (error: any) {
+            setMensajeModal(`❌ Error: ${error.message}`);
+        } finally {
+            setEnviandoModal(false);
+        }
+    }
+
+    if (cargando) {
+        return (
+            <div style={{
+                background: 'linear-gradient(135deg, #2d1a0a 0%, #1a0a05 100%)',
+                minHeight: '100vh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'Georgia, serif',
+                color: '#f0ebdc'
+            }}>
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>🌾</div>
+                    <p>Cargando panel de administración...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="pd-wrapper">
-            <div className="pd-overlay" />
-            <div className="pd-body">
+        <div style={{
+            background: 'linear-gradient(135deg, #2d1a0a 0%, #1a0a05 100%)',
+            minHeight: '100vh',
+            padding: '20px',
+            fontFamily: 'Georgia, serif'
+        }}>
+            <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
 
-                {/* ── HEADER ── */}
-                <header className="pd-header">
-                    <div className="pd-header-brand">
-                        <div className="pd-logo" />
-                        <div className="pd-brand-text">
-                            <h1>TLAPIANI</h1>
-                            <p>
-                                {usuario.idioma_preferido === 'nah'
-                                    ? 'Totlahtol, Totlal — Panel del Productor'
-                                    : 'Panel del Productor'}
+                {/* ========== ENCABEZADO ========== */}
+                <div style={{
+                    background: '#f0ebdc',
+                    border: '2px solid #b8860b',
+                    borderRadius: '12px',
+                    padding: '20px',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '16px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{
+                            width: '60px',
+                            height: '60px',
+                            borderRadius: '50%',
+                            background: '#6b1a2a',
+                            color: '#f0ebdc',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '32px',
+                            fontWeight: 'bold',
+                            border: '3px solid #b8860b'
+                        }}>
+                            T
+                        </div>
+                        <div>
+                            <h1 style={{
+                                color: '#6b1a2a',
+                                fontSize: 'clamp(20px, 4vw, 28px)',
+                                margin: '0 0 4px 0',
+                                letterSpacing: '1px'
+                            }}>
+                                TLAPIANI
+                            </h1>
+                            <p style={{ color: '#2b2620', margin: 0, fontSize: 'clamp(12px, 2vw, 14px)' }}>
+                                Panel de Administración
                             </p>
                         </div>
                     </div>
-                    <nav className="pd-header-nav">
-                        <button className="pd-nav-btn" onClick={() => navigate('/productor/perfil')}>
-                             Mi Perfil
-                        </button>
-                        <button className="pd-nav-btn" onClick={() => navigate('/productor/instructivo')}>
-                             Instructivo
-                        </button>
-                        <button className="pd-nav-btn-salir" onClick={cerrarSesion}>
+
+                    <div style={{ textAlign: 'right' }}>
+                        <p style={{ color: '#2b2620', margin: '0 0 8px 0', fontSize: 'clamp(13px, 2vw, 15px)' }}>
+                            👤 {adminNombre}
+                        </p>
+                        <button
+                            onClick={cerrarSesion}
+                            style={{
+                                background: '#6b1a2a',
+                                color: '#f0ebdc',
+                                border: 'none',
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontFamily: 'Georgia, serif',
+                                fontSize: 'clamp(12px, 2vw, 13px)',
+                                fontWeight: 'bold'
+                            }}
+                        >
                             Cerrar sesión
                         </button>
-                    </nav>
-                </header>
-
-                <main className="pd-main">
-
-                    {/* ── BIENVENIDA ── */}
-                    <div className="pd-welcome">
-                        <div>
-                            <h2 className="pd-welcome-title">
-                                {saludar()}, {usuario.nombre}
-                            </h2>
-                            <p className="pd-welcome-sub">
-                                {usuario.idioma_preferido === 'nah' ? 'Náhuatl' : '🇲🇽 Español'}
-                                &nbsp;·&nbsp;Acceso: {usuario.tipo_acceso}
-                                {alertasActivas > 0 && (
-                                    <span style={{ color: '#f87171', marginLeft: '1rem' }}>
-                                        {alertasActivas} alerta{alertasActivas > 1 ? 's' : ''} activa{alertasActivas > 1 ? 's' : ''}
-                                    </span>
-                                )}
-                            </p>
-                        </div>
-                        <span className="pd-folio-badge"> {usuario.folio}</span>
                     </div>
+                </div>
 
-                    {/* ── STATS RÁPIDAS ── */}
-                    {!loading && monitoreos.length > 0 && (
-                        <div className="pd-stats">
-                            <div className="pd-stat-card">
-                                <span className="pd-stat-num">{monitoreos.length}</span>
-                                <span className="pd-stat-label">Monitoreos recientes</span>
+                {/* ========== TABS ========== */}
+                <div style={{ marginBottom: '20px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <button
+                        onClick={() => setVistaActual('productores')}
+                        style={{
+                            padding: '12px 24px',
+                            background: vistaActual === 'productores' ? '#6b1a2a' : '#f0ebdc',
+                            color: vistaActual === 'productores' ? '#f0ebdc' : '#2b2620',
+                            border: vistaActual === 'productores' ? '2px solid #b8860b' : '2px solid transparent',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontFamily: 'Georgia, serif',
+                            fontSize: 'clamp(12px, 2vw, 14px)',
+                            fontWeight: 'bold',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        📊 Productores
+                    </button>
+                    <button
+                        onClick={() => setVistaActual('zonas')}
+                        style={{
+                            padding: '12px 24px',
+                            background: vistaActual === 'zonas' ? '#6b1a2a' : '#f0ebdc',
+                            color: vistaActual === 'zonas' ? '#f0ebdc' : '#2b2620',
+                            border: vistaActual === 'zonas' ? '2px solid #b8860b' : '2px solid transparent',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontFamily: 'Georgia, serif',
+                            fontSize: 'clamp(12px, 2vw, 14px)',
+                            fontWeight: 'bold',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        🌳 Zonas de Restauración
+                    </button>
+                </div>
+
+                {/* ========== VISTA PRODUCTORES ========== */}
+                {vistaActual === 'productores' && (
+                    <>
+                        {/* ESTADÍSTICAS */}
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                            gap: '16px',
+                            marginBottom: '24px'
+                        }}>
+                            <div style={{
+                                background: '#f0ebdc',
+                                border: '2px solid #b8860b',
+                                borderRadius: '12px',
+                                padding: '20px',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{ fontSize: 'clamp(28px, 5vw, 36px)', fontWeight: 'bold', color: '#6b1a2a', marginBottom: '8px' }}>
+                                    {stats.total}
+                                </div>
+                                <div style={{ fontSize: 'clamp(11px, 2vw, 13px)', color: '#2b2620', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    Total Productores
+                                </div>
                             </div>
-                            <div className="pd-stat-card">
-                                <span className="pd-stat-num">{parcelasUnicas}</span>
-                                <span className="pd-stat-label">Parcelas activas</span>
+
+                            <div style={{
+                                background: '#f0ebdc',
+                                border: '2px solid #b8860b',
+                                borderRadius: '12px',
+                                padding: '20px',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{ fontSize: 'clamp(28px, 5vw, 36px)', fontWeight: 'bold', color: '#1D9E75', marginBottom: '8px' }}>
+                                    {stats.activos}
+                                </div>
+                                <div style={{ fontSize: 'clamp(11px, 2vw, 13px)', color: '#2b2620', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    Activos
+                                </div>
                             </div>
-                            <div className="pd-stat-card">
-                                <span className="pd-stat-num" style={{ color: '#f59e0b' }}>
-                                    {alertasActivas}
-                                </span>
-                                <span className="pd-stat-label">Alertas de plaga</span>
+
+                            <div style={{
+                                background: '#f0ebdc',
+                                border: '2px solid #b8860b',
+                                borderRadius: '12px',
+                                padding: '20px',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{ fontSize: 'clamp(28px, 5vw, 36px)', fontWeight: 'bold', color: '#D85A30', marginBottom: '8px' }}>
+                                    {stats.en_riesgo_alto}
+                                </div>
+                                <div style={{ fontSize: 'clamp(11px, 2vw, 13px)', color: '#2b2620', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    🚨 En Riesgo Alto
+                                </div>
                             </div>
-                            <div className="pd-stat-card">
-                                <span className="pd-stat-num" style={{ color: '#ef4444' }}>
-                                    {enRojo}
-                                </span>
-                                <span className="pd-stat-label">Lotes en rojo</span>
+
+                            <div style={{
+                                background: '#f0ebdc',
+                                border: '2px solid #b8860b',
+                                borderRadius: '12px',
+                                padding: '20px',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{ fontSize: 'clamp(28px, 5vw, 36px)', fontWeight: 'bold', color: '#BA7517', marginBottom: '8px' }}>
+                                    {stats.con_alertas}
+                                </div>
+                                <div style={{ fontSize: 'clamp(11px, 2vw, 13px)', color: '#2b2620', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    ⚠️ Con Alertas
+                                </div>
+                            </div>
+
+                            <div style={{
+                                background: '#f0ebdc',
+                                border: '2px solid #b8860b',
+                                borderRadius: '12px',
+                                padding: '20px',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{ fontSize: 'clamp(28px, 5vw, 36px)', fontWeight: 'bold', color: '#b8860b', marginBottom: '8px' }}>
+                                    {stats.nahuatl}
+                                </div>
+                                <div style={{ fontSize: 'clamp(11px, 2vw, 13px)', color: '#2b2620', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    En Náhuatl
+                                </div>
+                            </div>
+
+                            <div style={{
+                                background: '#f0ebdc',
+                                border: '2px solid #b8860b',
+                                borderRadius: '12px',
+                                padding: '20px',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{ fontSize: 'clamp(28px, 5vw, 36px)', fontWeight: 'bold', color: '#555', marginBottom: '8px' }}>
+                                    {stats.inactivos}
+                                </div>
+                                <div style={{ fontSize: 'clamp(11px, 2vw, 13px)', color: '#2b2620', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    Inactivos
+                                </div>
                             </div>
                         </div>
-                    )}
 
-                    {/* ── ERROR ── */}
-                    {errorMsg && (
-                        <div className="pd-error">
-                            {errorMsg}
-                            <button
-                                onClick={() => usuario && cargarMonitoreos(usuario.id)}
+                        {/* BÚSQUEDA */}
+                        <div style={{
+                            background: '#f0ebdc',
+                            border: '2px solid #b8860b',
+                            borderRadius: '12px',
+                            padding: '16px',
+                            marginBottom: '20px',
+                            display: 'flex',
+                            gap: '12px',
+                            alignItems: 'center',
+                            flexWrap: 'wrap'
+                        }}>
+                            <input
+                                type="text"
+                                placeholder="Buscar por nombre, folio, municipio o cultivo..."
+                                value={busqueda}
+                                onChange={(e) => setBusqueda(e.target.value)}
                                 style={{
-                                    display: 'block', margin: '0.75rem auto 0',
-                                    background: 'transparent', border: '1px solid #b8860b',
-                                    color: '#b8860b', padding: '0.35rem 1rem',
-                                    borderRadius: '0.5rem', cursor: 'pointer',
+                                    flex: '1 1 300px',
+                                    padding: '10px 14px',
+                                    border: '1px solid #b8860b',
+                                    borderRadius: '6px',
                                     fontFamily: 'Georgia, serif',
+                                    fontSize: 'clamp(12px, 2vw, 14px)'
+                                }}
+                            />
+                            <button
+                                onClick={cargarDatos}
+                                style={{
+                                    background: '#6b1a2a',
+                                    color: '#f0ebdc',
+                                    border: 'none',
+                                    padding: '10px 20px',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontFamily: 'Georgia, serif',
+                                    fontSize: 'clamp(12px, 2vw, 14px)',
+                                    fontWeight: 'bold'
                                 }}
                             >
-                                Reintentar
+                                🔄 Recargar
                             </button>
                         </div>
-                    )}
 
-                    {/* ── MONITOREOS ── */}
-                    <h3 className="pd-section-title"> Últimos Monitoreos de Mis Cultivos</h3>
-
-                    {loading ? (
-                        <div className="pd-loading">
-                            <div className="pd-spinner" />
-                            Cargando datos satelitales...
+                        {/* TABLA DE PRODUCTORES */}
+                        <div style={{
+                            background: '#f0ebdc',
+                            border: '2px solid #b8860b',
+                            borderRadius: '12px',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{
+                                    width: '100%',
+                                    borderCollapse: 'collapse',
+                                    fontSize: 'clamp(12px, 2vw, 14px)'
+                                }}>
+                                    <thead>
+                                        <tr style={{ background: '#6b1a2a', color: '#f0ebdc' }}>
+                                            <th style={{ padding: '14px 12px', textAlign: 'left', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Nombre</th>
+                                            <th style={{ padding: '14px 12px', textAlign: 'left', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Folio</th>
+                                            <th style={{ padding: '14px 12px', textAlign: 'left', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Municipio</th>
+                                            <th style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Estado Cultivos</th>
+                                            <th style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Alertas</th>
+                                            <th style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Idioma</th>
+                                            <th style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Acceso</th>
+                                            <th style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Estado</th>
+                                            <th style={{ padding: '14px 12px', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap' }}>Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {productoresFiltrados.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: '#888' }}>
+                                                    {busqueda ? 'No se encontraron productores con ese criterio' : 'No hay productores registrados'}
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            productoresFiltrados.map((p, index) => (
+                                                <tr key={p.id} style={{
+                                                    background: index % 2 === 0 ? '#fff' : '#f9f9f9',
+                                                    borderBottom: '1px solid #e0e0e0'
+                                                }}>
+                                                    <td style={{ padding: '12px', color: '#2b2620' }}>{p.nombre}</td>
+                                                    <td style={{ padding: '12px', color: '#6b1a2a', fontWeight: 'bold', fontFamily: 'monospace', fontSize: '12px' }}>
+                                                        {p.folio}
+                                                    </td>
+                                                    <td style={{ padding: '12px', color: '#2b2620' }}>
+                                                        {p.municipios?.nombre || 'Sin municipio'}
+                                                    </td>
+                                                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                        <div style={{
+                                                            display: 'inline-block',
+                                                            padding: '6px 12px',
+                                                            borderRadius: '12px',
+                                                            fontSize: '11px',
+                                                            fontWeight: 'bold',
+                                                            background:
+                                                                p.estado_riesgo === 'alto' ? '#FCEBEB' :
+                                                                    p.estado_riesgo === 'medio' ? '#FAEEDA' :
+                                                                        '#E1F5EE',
+                                                            color:
+                                                                p.estado_riesgo === 'alto' ? '#D85A30' :
+                                                                    p.estado_riesgo === 'medio' ? '#BA7517' :
+                                                                        '#1D9E75'
+                                                        }}>
+                                                            {p.estado_riesgo === 'alto' ? '🔴 Riesgo Alto' :
+                                                                p.estado_riesgo === 'medio' ? '🟡 Vigilar' :
+                                                                    '🟢 Normal'}
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                        {(p.alertas_activas || 0) > 0 ? (
+                                                            <div style={{ fontSize: '11px' }}>
+                                                                <div style={{ fontWeight: 'bold', color: '#D85A30', marginBottom: '2px' }}>
+                                                                    {p.alertas_activas} {p.alertas_activas === 1 ? 'alerta' : 'alertas'}
+                                                                </div>
+                                                                {p.cultivos_afectados && p.cultivos_afectados.length > 0 && (
+                                                                    <div style={{ color: '#666' }}>
+                                                                        {p.cultivos_afectados.join(', ')}
+                                                                    </div>
+                                                                )}
+                                                                {p.ultima_alerta && (
+                                                                    <div style={{ color: '#999', fontSize: '10px', marginTop: '2px' }}>
+                                                                        {p.ultima_alerta}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span style={{ color: '#999', fontSize: '11px' }}>Sin alertas</span>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                        <span style={{
+                                                            display: 'inline-block',
+                                                            padding: '4px 10px',
+                                                            borderRadius: '12px',
+                                                            fontSize: '11px',
+                                                            fontWeight: 'bold',
+                                                            background: p.idioma_preferido === 'nah' ? '#b8860b' : '#ccc',
+                                                            color: p.idioma_preferido === 'nah' ? '#fff' : '#000'
+                                                        }}>
+                                                            {p.idioma_preferido === 'es' ? 'ES' : p.idioma_preferido === 'nah' ? 'NAH' : 'TOT'}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '12px', textAlign: 'center', fontSize: '18px' }}>
+                                                        {p.tipo_acceso === 'smartphone' ? '📱' :
+                                                            p.tipo_acceso === 'sms' ? '📞' : '❌'}
+                                                    </td>
+                                                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                        <span style={{
+                                                            display: 'inline-block',
+                                                            padding: '5px 12px',
+                                                            borderRadius: '12px',
+                                                            fontSize: '11px',
+                                                            fontWeight: 'bold',
+                                                            background: p.activo ? '#E1F5EE' : '#FCEBEB',
+                                                            color: p.activo ? '#1D9E75' : '#D85A30'
+                                                        }}>
+                                                            {p.activo ? '✓ Activo' : '✗ Inactivo'}
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                        <button
+                                                            onClick={() => toggleActivoProductor(p.id, p.activo)}
+                                                            style={{
+                                                                background: p.activo ? '#D85A30' : '#1D9E75',
+                                                                color: '#fff',
+                                                                border: 'none',
+                                                                padding: '6px 14px',
+                                                                borderRadius: '6px',
+                                                                cursor: 'pointer',
+                                                                fontSize: '11px',
+                                                                fontWeight: 'bold',
+                                                                whiteSpace: 'nowrap'
+                                                            }}
+                                                        >
+                                                            {p.activo ? 'Desactivar' : 'Activar'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    ) : monitoreos.length === 0 ? (
-                        <div className="pd-empty">
-                            <p style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}></p>
-                            <p>Aún no hay registros de monitoreo para tus parcelas.</p>
-                            <p style={{ fontSize: '0.82rem', marginTop: '0.5rem', color: '#6b7280' }}>
-                                El equipo técnico generará los primeros reportes pronto.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="pd-monitoreos-grid">
-                            {monitoreos.map(m => {
-                                const semaforo = m.estado_semaforo ?? 'sin-dato'
-                                const parcela = m.lotes_cultivo?.parcelas
-                                const cultivo = m.lotes_cultivo?.cultivo ?? '—'
-                                const recomendacion = usuario.idioma_preferido === 'nah'
-                                    ? m.recomendacion_texto_nah
-                                    : m.recomendacion_texto_es
-                                const ndviPct = m.ndvi != null
-                                    ? Math.min(Math.max(m.ndvi, -1), 1)
-                                    : null
+                    </>
+                )}
 
-                                return (
-                                    <div key={m.id} className="pd-card">
-                                        {/* Barra de color superior */}
-                                        <div className={`pd-card-topbar ${semaforo}`} />
+                {/* ========== VISTA ZONAS DE RESTAURACIÓN ========== */}
+                {vistaActual === 'zonas' && (
+                    <>
+                        <h2 style={{ color: '#f0ebdc', fontSize: 'clamp(20px, 4vw, 24px)', marginBottom: '16px' }}>
+                            🌳 Zonas de Restauración Forestal
+                        </h2>
 
-                                        <div className="pd-card-body">
-                                            {/* Encabezado */}
-                                            <div className="pd-card-header">
-                                                <div className="pd-card-title-group">
-                                                    <p className="pd-card-parcela">
-                                                        {CULTIVO_EMOJI[cultivo] || ''}&nbsp;
-                                                        {parcela?.nombre ?? 'Parcela desconocida'}
-                                                    </p>
-                                                    <p className="pd-card-cultivo">
-                                                        {cultivo.charAt(0).toUpperCase() + cultivo.slice(1)}
-                                                    </p>
-                                                </div>
+                        {zonas.length === 0 ? (
+                            <div style={{
+                                background: '#f0ebdc',
+                                border: '2px solid #b8860b',
+                                borderRadius: '12px',
+                                padding: '60px 20px',
+                                textAlign: 'center'
+                            }}>
+                                <div style={{ fontSize: '48px', marginBottom: '16px' }}>🌲</div>
+                                <p style={{ color: '#2b2620', fontSize: 'clamp(14px, 2vw, 16px)', marginBottom: '12px' }}>
+                                    No hay zonas de restauración disponibles.
+                                </p>
+                                <p style={{ color: '#666', fontSize: 'clamp(12px, 2vw, 14px)' }}>
+                                    Para agregar zonas, ejecuta el script seed_zonas_restauracion.sql en Supabase.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                {/* MAPA */}
+                                <div style={{
+                                    background: '#f0ebdc',
+                                    border: '3px solid #b8860b',
+                                    borderRadius: '12px',
+                                    overflow: 'hidden',
+                                    marginBottom: '20px',
+                                    height: 'clamp(400px, 60vh, 600px)'
+                                }}>
+                                    <Map
+                                        {...viewState}
+                                        onMove={evt => setViewState(evt.viewState)}
+                                        mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
+                                        style={{ width: '100%', height: '100%' }}
+                                        mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
+                                    >
+                                        {zonas.map(zona => (
+                                            <Marker
+                                                key={zona.id}
+                                                latitude={zona.latitud}
+                                                longitude={zona.longitud}
+                                                anchor="bottom"
+                                            >
                                                 <div
-                                                    className={`pd-semaforo ${semaforo}`}
-                                                    title={SEMAFORO_LABEL[semaforo] ?? 'Sin dato'}
+                                                    onClick={() => {
+                                                        setZonaSeleccionada(zona);
+                                                        setMostrarPopup(true);
+                                                    }}
+                                                    style={{
+                                                        width: '30px',
+                                                        height: '30px',
+                                                        borderRadius: '50%',
+                                                        background: zona.estado === 'disponible' ? '#22c55e' : '#ef4444',
+                                                        border: '3px solid white',
+                                                        cursor: 'pointer',
+                                                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                                                        transition: 'transform 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                                                 />
-                                            </div>
+                                            </Marker>
+                                        ))}
 
-                                            {/* Alerta de plaga */}
-                                            {m.alerta_plaga && (
-                                                <div className="pd-alerta-plaga">
-                                                     Alerta activa
-                                                    {m.plaga_probable && (
-                                                        <span>&nbsp;— {m.plaga_probable}</span>
+                                        {mostrarPopup && zonaSeleccionada && (
+                                            <Popup
+                                                latitude={zonaSeleccionada.latitud}
+                                                longitude={zonaSeleccionada.longitud}
+                                                anchor="top"
+                                                onClose={() => {
+                                                    setMostrarPopup(false);
+                                                    setZonaSeleccionada(null);
+                                                }}
+                                                closeOnClick={false}
+                                                maxWidth="350px"
+                                            >
+                                                <div style={{ padding: '12px', fontFamily: 'Georgia, serif' }}>
+                                                    <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', color: '#2b2620' }}>
+                                                        {zonaSeleccionada.nombre}
+                                                    </h3>
+                                                    <p style={{ margin: '4px 0', fontSize: '13px', color: '#555' }}>
+                                                        <strong>Programa:</strong> {zonaSeleccionada.programa}
+                                                    </p>
+                                                    <p style={{ margin: '4px 0', fontSize: '13px', color: '#555' }}>
+                                                        <strong>Organización:</strong> {zonaSeleccionada.organizacion}
+                                                    </p>
+                                                    <p style={{ margin: '4px 0', fontSize: '13px', color: '#555' }}>
+                                                        <strong>Hectáreas:</strong> {zonaSeleccionada.hectareas} ha
+                                                    </p>
+                                                    <p style={{ margin: '4px 0', fontSize: '13px', color: '#555' }}>
+                                                        <strong>Apoyo mensual:</strong> ${zonaSeleccionada.apoyo_mensual_estimado?.toLocaleString('es-MX')} MXN
+                                                    </p>
+                                                    <p style={{ margin: '8px 0 4px 0', fontSize: '13px', color: '#555' }}>
+                                                        <strong>Actividades:</strong>
+                                                    </p>
+                                                    <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#666', lineHeight: '1.5' }}>
+                                                        {zonaSeleccionada.actividades}
+                                                    </p>
+                                                    <p style={{ margin: '8px 0 4px 0', fontSize: '13px', color: '#555' }}>
+                                                        <strong>Cultivos sugeridos:</strong>
+                                                    </p>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
+                                                        {zonaSeleccionada.cultivos_sugeridos?.map((c, i) => (
+                                                            <span key={i} style={{
+                                                                display: 'inline-block',
+                                                                background: '#1D9E75',
+                                                                color: 'white',
+                                                                padding: '3px 8px',
+                                                                borderRadius: '10px',
+                                                                fontSize: '11px'
+                                                            }}>
+                                                                {c}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                    <div style={{
+                                                        padding: '8px',
+                                                        background: zonaSeleccionada.estado === 'disponible' ? '#E1F5EE' : '#FCEBEB',
+                                                        borderRadius: '6px',
+                                                        marginBottom: '8px'
+                                                    }}>
+                                                        <p style={{
+                                                            margin: 0,
+                                                            fontSize: '12px',
+                                                            fontWeight: 'bold',
+                                                            color: zonaSeleccionada.estado === 'disponible' ? '#1D9E75' : '#D85A30'
+                                                        }}>
+                                                            {zonaSeleccionada.estado === 'disponible' ? '✓ Disponible' : '✗ Ya asignada'}
+                                                        </p>
+                                                    </div>
+                                                    {zonaSeleccionada.estado === 'disponible' && (
+                                                        <button
+                                                            onClick={() => setMostrarModal(true)}
+                                                            style={{
+                                                                width: '100%',
+                                                                background: '#6b1a2a',
+                                                                color: '#f0ebdc',
+                                                                border: 'none',
+                                                                padding: '10px',
+                                                                borderRadius: '6px',
+                                                                cursor: 'pointer',
+                                                                fontFamily: 'Georgia, serif',
+                                                                fontSize: '13px',
+                                                                fontWeight: 'bold'
+                                                            }}
+                                                        >
+                                                            Registrar productor aquí
+                                                        </button>
                                                     )}
                                                 </div>
-                                            )}
+                                            </Popup>
+                                        )}
+                                    </Map>
+                                </div>
 
-                                            {/* Métricas climáticas */}
-                                            <div className="pd-metrics">
-                                                <div className="pd-metric">
-                                                    <span className="pd-metric-label"> Temp. máx</span>
-                                                    <span className="pd-metric-value">
-                                                        {m.temperatura_max != null ? `${m.temperatura_max}°C` : '—'}
-                                                    </span>
-                                                </div>
-                                                <div className="pd-metric">
-                                                    <span className="pd-metric-label"> Temp. mín</span>
-                                                    <span className="pd-metric-value">
-                                                        {m.temperatura_min != null ? `${m.temperatura_min}°C` : '—'}
-                                                    </span>
-                                                </div>
-                                                <div className="pd-metric">
-                                                    <span className="pd-metric-label"> Humedad</span>
-                                                    <span className="pd-metric-value">
-                                                        {m.humedad_relativa != null ? `${m.humedad_relativa}%` : '—'}
-                                                    </span>
-                                                </div>
-                                                <div className="pd-metric">
-                                                    <span className="pd-metric-label"> Precipitación</span>
-                                                    <span className="pd-metric-value">
-                                                        {m.precipitacion != null ? `${m.precipitacion} mm` : '—'}
-                                                    </span>
-                                                </div>
-
-                                                {/* Barra NDVI */}
-                                                {ndviPct != null && (
-                                                    <div className="pd-ndvi-bar-wrap">
-                                                        <div className="pd-metric-label" style={{ marginBottom: '0.3rem' }}>
-                                                             NDVI: {m.ndvi!.toFixed(3)}
-                                                        </div>
-                                                        <div className="pd-ndvi-bar-bg">
-                                                            <div
-                                                                className="pd-ndvi-bar-fill"
-                                                                style={{
-                                                                    width: `${((ndviPct + 1) / 2) * 100}%`,
-                                                                    background: ndviColor(ndviPct),
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Recomendación */}
-                                            {recomendacion && (
-                                                <div className="pd-recomendacion">
-                                                     {recomendacion}
-                                                </div>
-                                            )}
-
-                                            {/* Fecha */}
-                                            <p className="pd-card-fecha">
-                                                 {formatFecha(m.fecha)}
-                                            </p>
-                                        </div>
+                                {/* LEYENDA */}
+                                <div style={{
+                                    background: '#f0ebdc',
+                                    border: '2px solid #b8860b',
+                                    borderRadius: '12px',
+                                    padding: '16px',
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: '24px',
+                                    alignItems: 'center',
+                                    fontSize: 'clamp(12px, 2vw, 14px)'
+                                }}>
+                                    <span style={{ fontWeight: 'bold', color: '#2b2620' }}>Leyenda:</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{
+                                            width: '20px',
+                                            height: '20px',
+                                            borderRadius: '50%',
+                                            background: '#22c55e',
+                                            border: '2px solid white'
+                                        }} />
+                                        <span>Disponible</span>
                                     </div>
-                                )
-                            })}
-                        </div>
-                    )}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{
+                                            width: '20px',
+                                            height: '20px',
+                                            borderRadius: '50%',
+                                            background: '#ef4444',
+                                            border: '2px solid white'
+                                        }} />
+                                        <span>Asignada</span>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </>
+                )}
 
-                    {/* ── INFO CARDS ── */}
-                    <h3 className="pd-section-title"> Sobre Tlapiani</h3>
-                    <div className="pd-info-grid">
-                        <div className="pd-info-card">
-                            <h4 className="pd-info-card-title"> Datos Satelitales</h4>
-                            <p className="pd-info-card-text">
-                                Analizamos índices NDVI con imágenes MODIS de la NASA para
-                                detectar estrés hídrico y cambios en la salud de tu cultivo antes de que sean visibles.
+                {/* ========== MODAL DE REGISTRO ========== */}
+                {mostrarModal && zonaSeleccionada && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0,0,0,0.85)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10000,
+                        padding: '20px',
+                        overflowY: 'auto'
+                    }}>
+                        <div style={{
+                            background: 'linear-gradient(135deg, #2d1a0a 0%, #1a0a05 100%)',
+                            border: '3px solid #b8860b',
+                            borderRadius: '16px',
+                            padding: 'clamp(20px, 4vw, 30px)',
+                            maxWidth: '500px',
+                            width: '100%',
+                            maxHeight: '90vh',
+                            overflowY: 'auto'
+                        }}>
+                            <h2 style={{
+                                color: '#f0ebdc',
+                                fontSize: 'clamp(18px, 4vw, 22px)',
+                                marginBottom: '8px',
+                                fontFamily: 'Georgia, serif'
+                            }}>
+                                Registrar Productor
+                            </h2>
+                            <p style={{ color: '#b8860b', marginBottom: '20px', fontSize: 'clamp(12px, 2vw, 14px)' }}>
+                                {zonaSeleccionada.nombre}
                             </p>
-                        </div>
-                        <div className="pd-info-card">
-                            <h4 className="pd-info-card-title"> Clima en Tiempo Real</h4>
-                            <p className="pd-info-card-text">
-                                Temperatura, humedad y precipitación desde estaciones meteorológicas
-                                y modelos NASA POWER calibrados para tu parcela.
-                            </p>
-                        </div>
-                        <div className="pd-info-card">
-                            <h4 className="pd-info-card-title"> Alertas de Plagas</h4>
-                            <p className="pd-info-card-text">
-                                Identificación temprana de plagas basada en condiciones climáticas
-                                y umbrales de riesgo regionales. Recomendaciones en tu idioma.
-                            </p>
-                        </div>
-                        <div className="pd-info-card">
-                            <h4 className="pd-info-card-title"> En tu Idioma</h4>
-                            <p className="pd-info-card-text">
-                                Todas las recomendaciones están disponibles en Español y Náhuatl.
-                                Puedes cambiar tu idioma en el perfil.
-                            </p>
+
+                            {/* Nombre */}
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    color: '#f0ebdc',
+                                    marginBottom: '6px',
+                                    fontSize: 'clamp(12px, 2vw, 14px)',
+                                    fontWeight: 'bold'
+                                }}>
+                                    Nombre completo *
+                                </label>
+                                <input
+                                    type="text"
+                                    value={formModal.nombre}
+                                    onChange={(e) => setFormModal({ ...formModal, nombre: e.target.value })}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #b8860b',
+                                        background: '#f0ebdc',
+                                        fontFamily: 'Georgia, serif',
+                                        fontSize: 'clamp(12px, 2vw, 14px)',
+                                        boxSizing: 'border-box'
+                                    }}
+                                    placeholder="Ej: Juan Pérez López"
+                                />
+                            </div>
+
+                            {/* Teléfono */}
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    color: '#f0ebdc',
+                                    marginBottom: '6px',
+                                    fontSize: 'clamp(12px, 2vw, 14px)',
+                                    fontWeight: 'bold'
+                                }}>
+                                    Teléfono (opcional)
+                                </label>
+                                <input
+                                    type="tel"
+                                    value={formModal.telefono}
+                                    onChange={(e) => setFormModal({ ...formModal, telefono: e.target.value })}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #b8860b',
+                                        background: '#f0ebdc',
+                                        fontFamily: 'Georgia, serif',
+                                        fontSize: 'clamp(12px, 2vw, 14px)',
+                                        boxSizing: 'border-box'
+                                    }}
+                                    placeholder="+52XXXXXXXXXX"
+                                />
+                            </div>
+
+                            {/* Idioma */}
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    color: '#f0ebdc',
+                                    marginBottom: '8px',
+                                    fontSize: 'clamp(12px, 2vw, 14px)',
+                                    fontWeight: 'bold'
+                                }}>
+                                    Idioma preferido
+                                </label>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button
+                                        onClick={() => setFormModal({ ...formModal, idioma: 'es' })}
+                                        style={{
+                                            flex: 1,
+                                            padding: '10px',
+                                            background: formModal.idioma === 'es' ? '#6b1a2a' : '#f0ebdc',
+                                            color: formModal.idioma === 'es' ? '#f0ebdc' : '#2b2620',
+                                            border: '2px solid ' + (formModal.idioma === 'es' ? '#b8860b' : 'transparent'),
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            fontFamily: 'Georgia, serif',
+                                            fontSize: 'clamp(12px, 2vw, 14px)',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        Español
+                                    </button>
+                                    <button
+                                        onClick={() => setFormModal({ ...formModal, idioma: 'nah' })}
+                                        style={{
+                                            flex: 1,
+                                            padding: '10px',
+                                            background: formModal.idioma === 'nah' ? '#6b1a2a' : '#f0ebdc',
+                                            color: formModal.idioma === 'nah' ? '#f0ebdc' : '#2b2620',
+                                            border: '2px solid ' + (formModal.idioma === 'nah' ? '#b8860b' : 'transparent'),
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            fontFamily: 'Georgia, serif',
+                                            fontSize: 'clamp(12px, 2vw, 14px)',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        Náhuatl
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Tipo de acceso */}
+                            <div style={{ marginBottom: '16px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    color: '#f0ebdc',
+                                    marginBottom: '8px',
+                                    fontSize: 'clamp(12px, 2vw, 14px)',
+                                    fontWeight: 'bold'
+                                }}>
+                                    Tipo de celular
+                                </label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {(['smartphone', 'sms', 'sin_celular'] as const).map(tipo => (
+                                        <button
+                                            key={tipo}
+                                            onClick={() => setFormModal({ ...formModal, tipoAcceso: tipo })}
+                                            style={{
+                                                padding: '10px',
+                                                background: formModal.tipoAcceso === tipo ? '#6b1a2a' : '#f0ebdc',
+                                                color: formModal.tipoAcceso === tipo ? '#f0ebdc' : '#2b2620',
+                                                border: '2px solid ' + (formModal.tipoAcceso === tipo ? '#b8860b' : 'transparent'),
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontFamily: 'Georgia, serif',
+                                                fontSize: 'clamp(11px, 2vw, 13px)',
+                                                fontWeight: 'bold',
+                                                textAlign: 'left'
+                                            }}
+                                        >
+                                            {tipo === 'smartphone' ? '📱 Smartphone (WhatsApp)' :
+                                                tipo === 'sms' ? '📞 Teléfono básico (SMS)' :
+                                                    '❌ Sin celular'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Cultivos */}
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{
+                                    display: 'block',
+                                    color: '#f0ebdc',
+                                    marginBottom: '8px',
+                                    fontSize: 'clamp(12px, 2vw, 14px)',
+                                    fontWeight: 'bold'
+                                }}>
+                                    Cultivos a sembrar (mínimo 1) *
+                                </label>
+                                {zonaSeleccionada.cultivos_sugeridos?.map((cultivo, i) => (
+                                    <label
+                                        key={i}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            padding: '10px',
+                                            background: formModal.cultivosSeleccionados.includes(cultivo) ? '#6b1a2a' : '#f0ebdc',
+                                            color: formModal.cultivosSeleccionados.includes(cultivo) ? '#f0ebdc' : '#2b2620',
+                                            borderRadius: '6px',
+                                            marginBottom: '8px',
+                                            cursor: 'pointer',
+                                            fontSize: 'clamp(12px, 2vw, 14px)',
+                                            border: '2px solid ' + (formModal.cultivosSeleccionados.includes(cultivo) ? '#b8860b' : 'transparent')
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={formModal.cultivosSeleccionados.includes(cultivo)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setFormModal({
+                                                        ...formModal,
+                                                        cultivosSeleccionados: [...formModal.cultivosSeleccionados, cultivo]
+                                                    });
+                                                } else {
+                                                    setFormModal({
+                                                        ...formModal,
+                                                        cultivosSeleccionados: formModal.cultivosSeleccionados.filter(c => c !== cultivo)
+                                                    });
+                                                }
+                                            }}
+                                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                        />
+                                        {cultivo}
+                                    </label>
+                                ))}
+                            </div>
+
+                            {/* Mensaje */}
+                            {mensajeModal && (
+                                <div style={{
+                                    background: mensajeModal.includes('✅') ? '#E1F5EE' : '#FCEBEB',
+                                    color: mensajeModal.includes('✅') ? '#085041' : '#791F1F',
+                                    padding: '12px',
+                                    borderRadius: '6px',
+                                    marginBottom: '16px',
+                                    fontSize: 'clamp(11px, 2vw, 13px)',
+                                    whiteSpace: 'pre-line',
+                                    lineHeight: '1.5'
+                                }}>
+                                    {mensajeModal}
+                                </div>
+                            )}
+
+                            {/* Botones */}
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                <button
+                                    onClick={registrarProductorEnZona}
+                                    disabled={enviandoModal}
+                                    style={{
+                                        flex: '1 1 150px',
+                                        background: '#1D9E75',
+                                        color: '#fff',
+                                        border: 'none',
+                                        padding: '12px',
+                                        borderRadius: '6px',
+                                        cursor: enviandoModal ? 'not-allowed' : 'pointer',
+                                        fontFamily: 'Georgia, serif',
+                                        fontSize: 'clamp(12px, 2vw, 14px)',
+                                        fontWeight: 'bold',
+                                        opacity: enviandoModal ? 0.6 : 1
+                                    }}
+                                >
+                                    {enviandoModal ? 'Registrando...' : 'Registrar'}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setMostrarModal(false);
+                                        setMensajeModal('');
+                                        setFormModal({
+                                            nombre: '',
+                                            telefono: '',
+                                            idioma: 'es',
+                                            tipoAcceso: 'smartphone',
+                                            cultivosSeleccionados: []
+                                        });
+                                    }}
+                                    disabled={enviandoModal}
+                                    style={{
+                                        flex: '1 1 150px',
+                                        background: '#6b1a2a',
+                                        color: '#f0ebdc',
+                                        border: 'none',
+                                        padding: '12px',
+                                        borderRadius: '6px',
+                                        cursor: enviandoModal ? 'not-allowed' : 'pointer',
+                                        fontFamily: 'Georgia, serif',
+                                        fontSize: 'clamp(12px, 2vw, 14px)',
+                                        fontWeight: 'bold',
+                                        opacity: enviandoModal ? 0.6 : 1
+                                    }}
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
                         </div>
                     </div>
+                )}
 
-                </main>
             </div>
         </div>
-    )
+    );
 }
