@@ -86,7 +86,7 @@ export default function AdminUsers() {
                                 <h3 style={styles.nombre}>{p.nombre} {p.apellidos}</h3>
                                 <p style={styles.info}>📍 {p.municipio}, {p.estado}</p>
                                 <p style={styles.info}>📱 {p.telefono || '—'}</p>
-                                <p style={styles.info}>🌐 {p.tipo_acceso} · {p.idioma_preferido === 'nah' ? '🌽 Náhuatl' : '🇲🇽 Español'}</p>
+                                <p style={styles.info}>🌐 {p.tipo_acceso} · {p.idioma_preferido === 'nah' ? 'Náhuatl' : '🇲🇽 Español'}</p>
                                 <div style={styles.cardActions}>
                                     <button
                                         style={styles.btnEliminar}
