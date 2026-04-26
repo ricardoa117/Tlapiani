@@ -154,10 +154,10 @@ export default function ProductorDashboard() {
                     </div>
                     <nav className="pd-header-nav">
                         <button className="pd-nav-btn" onClick={() => navigate('/productor/perfil')}>
-                            👤 Mi Perfil
+                             Mi Perfil
                         </button>
                         <button className="pd-nav-btn" onClick={() => navigate('/productor/instructivo')}>
-                            📖 Instructivo
+                             Instructivo
                         </button>
                         <button className="pd-nav-btn-salir" onClick={cerrarSesion}>
                             Cerrar sesión
@@ -232,7 +232,7 @@ export default function ProductorDashboard() {
                     )}
 
                     {/* ── MONITOREOS ── */}
-                    <h3 className="pd-section-title">🛰️ Últimos Monitoreos de Mis Cultivos</h3>
+                    <h3 className="pd-section-title"> Últimos Monitoreos de Mis Cultivos</h3>
 
                     {loading ? (
                         <div className="pd-loading">
