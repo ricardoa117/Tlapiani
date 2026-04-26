@@ -1,7 +1,11 @@
-// src/pages/AdminDashboard.tsx
-import React, { useEffect, useState } from 'react';
+// src/pages/admin/AdminDashboard.tsx
+// ============================================================
+// TLAPIANI — Panel de Administración
+// ============================================================
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
+// @ts-ignore
 import Map, { Marker, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -38,16 +42,6 @@ interface Zona {
     municipios?: { nombre: string };
 }
 
-interface MonitoreoResumen {
-    productor_id: string;
-    total_lotes: number;
-    lotes_en_riesgo: number;
-    alertas_activas: number;
-    estado_general: 'bajo' | 'medio' | 'alto';
-    cultivos_afectados: string[];
-    ultima_fecha_monitoreo: string;
-}
-
 export default function AdminDashboard() {
     const navigate = useNavigate();
     const [adminNombre, setAdminNombre] = useState('Administrador');
@@ -55,6 +49,7 @@ export default function AdminDashboard() {
     const [productoresFiltrados, setProductoresFiltrados] = useState<Productor[]>([]);
     const [busqueda, setBusqueda] = useState('');
     const [cargando, setCargando] = useState(true);
+    const [adminMunicipioId, setAdminMunicipioId] = useState<number | null>(null);
 
     // Estadísticas
     const [stats, setStats] = useState({
@@ -91,29 +86,31 @@ export default function AdminDashboard() {
     const [mensajeModal, setMensajeModal] = useState('');
     const [enviandoModal, setEnviandoModal] = useState(false);
 
-    // Verificar sesión
+    // Verificar sesión — BUG FIX: usar clave 'usuario' (la que usa Login.tsx)
     useEffect(() => {
-        const sesion = localStorage.getItem('tlapiani_sesion');
+        const sesion = localStorage.getItem('usuario');
         if (!sesion) {
             navigate('/login');
             return;
         }
 
         const datos = JSON.parse(sesion);
+        // BUG FIX: redirigir no-admin a /productor/dashboard
         if (datos.rol !== 'admin') {
-            navigate('/dashboard');
+            navigate('/productor/dashboard');
             return;
         }
 
         setAdminNombre(datos.nombre);
-        cargarDatos();
+        setAdminMunicipioId(datos.municipio_id || null);
+        cargarDatos(datos.municipio_id || null);
     }, [navigate]);
 
-    async function cargarDatos() {
+    async function cargarDatos(mId: number | null = adminMunicipioId) {
         setCargando(true);
 
         // 1. Cargar productores con sus parcelas y monitoreo
-        const { data: prods, error: errorProds } = await supabase
+        let queryProds = supabase
             .from('productores')
             .select(`
         *,
@@ -134,6 +131,12 @@ export default function AdminDashboard() {
       `)
             .eq('rol', 'productor')
             .order('created_at', { ascending: false });
+
+        if (mId) {
+            queryProds.eq('municipio_id', mId);
+        }
+
+        const { data: prods, error: errorProds } = await queryProds;
 
         if (errorProds) {
             console.error('Error cargando productores:', errorProds);
@@ -193,9 +196,15 @@ export default function AdminDashboard() {
         }
 
         // 2. Cargar zonas de restauración
-        const { data: zonasData, error: errorZonas } = await supabase
+        let queryZonas = supabase
             .from('zonas_restauracion')
             .select('*, municipios(nombre)');
+
+        if (mId) {
+            queryZonas = queryZonas.eq('municipio_id', mId);
+        }
+
+        const { data: zonasData, error: errorZonas } = await queryZonas;
 
         if (!errorZonas && zonasData && zonasData.length > 0) {
             setZonas(zonasData);
@@ -241,11 +250,11 @@ export default function AdminDashboard() {
             return;
         }
 
-        cargarDatos();
+        cargarDatos(adminMunicipioId);
     }
 
     function cerrarSesion() {
-        localStorage.removeItem('tlapiani_sesion');
+        localStorage.removeItem('usuario');
         navigate('/login');
     }
 
@@ -343,7 +352,7 @@ export default function AdminDashboard() {
                     cultivosSeleccionados: []
                 });
                 setMensajeModal('');
-                cargarDatos();
+                cargarDatos(adminMunicipioId);
             }, 4000);
 
         } catch (error: any) {
@@ -379,6 +388,15 @@ export default function AdminDashboard() {
             padding: '20px',
             fontFamily: 'Georgia, serif'
         }}>
+            <style>
+                {`
+                    .admin-table-container { overflow-x: auto; }
+                    .admin-map-container { height: clamp(400px, 60vh, 600px); }
+                    @media (max-width: 768px) {
+                        .admin-map-container { height: 250px !important; }
+                    }
+                `}
+            </style>
             <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
 
                 {/* ========== ENCABEZADO ========== */}
@@ -614,7 +632,7 @@ export default function AdminDashboard() {
                                 }}
                             />
                             <button
-                                onClick={cargarDatos}
+                                onClick={() => cargarDatos(adminMunicipioId)}
                                 style={{
                                     background: '#6b1a2a',
                                     color: '#f0ebdc',
@@ -632,13 +650,12 @@ export default function AdminDashboard() {
                         </div>
 
                         {/* TABLA DE PRODUCTORES */}
-                        <div style={{
+                        <div className="admin-table-container" style={{
                             background: '#f0ebdc',
                             border: '2px solid #b8860b',
                             borderRadius: '12px',
-                            overflow: 'hidden'
                         }}>
-                            <div style={{ overflowX: 'auto' }}>
+                            <div style={{ minWidth: '800px' }}>
                                 <table style={{
                                     width: '100%',
                                     borderCollapse: 'collapse',
@@ -803,17 +820,16 @@ export default function AdminDashboard() {
                         ) : (
                             <>
                                 {/* MAPA */}
-                                <div style={{
+                                <div className="admin-map-container" style={{
                                     background: '#f0ebdc',
                                     border: '3px solid #b8860b',
                                     borderRadius: '12px',
                                     overflow: 'hidden',
                                     marginBottom: '20px',
-                                    height: 'clamp(400px, 60vh, 600px)'
                                 }}>
                                     <Map
                                         {...viewState}
-                                        onMove={evt => setViewState(evt.viewState)}
+                                        onMove={(evt: any) => setViewState(evt.viewState)}
                                         mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
                                         style={{ width: '100%', height: '100%' }}
                                         mapStyle="mapbox://styles/mapbox/satellite-streets-v12"
