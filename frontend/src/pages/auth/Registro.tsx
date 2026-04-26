@@ -298,7 +298,7 @@ export default function Registro() {
                                         <svg className="account-card-icon" viewBox="0 0 24 24">
                                             <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
                                         </svg>
-                                        <span className="account-card-title">🌽 Productor</span>
+                                        <span className="account-card-title">Productor</span>
                                         <p style={{ color: '#555', textAlign: 'center', fontSize: '0.9rem' }}>
                                             Registra tu parcela, cultivos y accede a monitoreo satelital.
                                         </p>
@@ -311,7 +311,7 @@ export default function Registro() {
                                         <svg className="account-card-icon" viewBox="0 0 24 24">
                                             <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
                                         </svg>
-                                        <span className="account-card-title">🔒 Administrador</span>
+                                        <span className="account-card-title">Administrador</span>
                                         <p style={{ color: '#555', textAlign: 'center', fontSize: '0.9rem' }}>
                                             Solo para personal autorizado. No disponible en registro público.
                                         </p>
@@ -388,7 +388,7 @@ export default function Registro() {
                                             type="button"
                                             className={`opt-btn ${datos.idioma_preferido === 'nah' ? 'active' : ''}`}
                                             onClick={() => actualizarDatos('idioma_preferido', 'nah')}
-                                        >🌽 Náhuatl</button>
+                                        >Náhuatl</button>
                                     </div>
                                 </div>
                                 <div className="input-group">
@@ -398,17 +398,17 @@ export default function Registro() {
                                             type="button"
                                             className={`opt-btn ${datos.tipo_acceso === 'smartphone' ? 'active' : ''}`}
                                             onClick={() => actualizarDatos('tipo_acceso', 'smartphone')}
-                                        >📱 Smartphone</button>
+                                        >Smartphone</button>
                                         <button
                                             type="button"
                                             className={`opt-btn ${datos.tipo_acceso === 'sms' ? 'active' : ''}`}
                                             onClick={() => actualizarDatos('tipo_acceso', 'sms')}
-                                        >💬 Solo SMS</button>
+                                        >Solo SMS</button>
                                         <button
                                             type="button"
                                             className={`opt-btn ${datos.tipo_acceso === 'sin_celular' ? 'active' : ''}`}
                                             onClick={() => actualizarDatos('tipo_acceso', 'sin_celular')}
-                                        >🚫 Sin celular</button>
+                                        >Sin celular</button>
                                     </div>
                                 </div>
 
@@ -579,7 +579,7 @@ export default function Registro() {
                                 <div className="row-btns">
                                     <button type="button" className="btn-atras-inline" onClick={anteriorPaso}>← Atrás</button>
                                     <button type="submit" className="btn-siguiente-inline" disabled={loading}>
-                                        {loading ? 'Registrando...' : '✅ Finalizar →'}
+                                        {loading ? 'Registrando...' : 'Finalizar →'}
                                     </button>
                                 </div>
                             </>
