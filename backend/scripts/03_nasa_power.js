@@ -109,7 +109,29 @@ async function procesarLote(lote) {
   const estadoSemaforo = riesgo.nivel_riesgo === 'alto' ? 'rojo' :
     riesgo.nivel_riesgo === 'medio' ? 'amarillo' : 'verde';
 
-  // ========== 3. RECOMENDACIÓN DE CULTIVO (NUEVO) ==========
+  // ========== 3. GUARDAR MONITOREO ==========
+  const { error } = await supabase.from('monitoreo_lote').upsert({
+    lote_id: lote.id,
+    fecha: hoy,
+    temperatura_max: datosClima.tmax,
+    temperatura_min: datosClima.tmin,
+    humedad_relativa: datosClima.humedad,
+    precipitacion: datosClima.precipitacion,
+    ndvi: ndviActual,
+    recomendacion_texto_es: riesgo.recomendacion_es,
+    recomendacion_texto_nah: riesgo.recomendacion_nah,
+    estado_semaforo: estadoSemaforo,
+    alerta_plaga: riesgo.alerta_plaga,
+    plaga_probable: riesgo.plaga_probable
+  }, { onConflict: 'lote_id, fecha' });
+
+  if (error) {
+    console.error(`  ❌ Error BD: ${error.message}`);
+  } else {
+    console.log(`  ✅ T=${datosClima.tmax}°C | ${riesgo.plaga_probable}`);
+  }
+
+  // ========== 4. RECOMENDACIÓN DE CULTIVO (NUEVO) ==========
   const paramsReco = {
     tmax: municipio.temperatura_promedio_anual + 5,
     tmin: municipio.temperatura_promedio_anual - 5,
@@ -141,28 +163,6 @@ async function procesarLote(lote) {
     console.log(`  💡 Recomendación: ${recomendacion.cultivo_ideal} (${recomendacion.compatibilidad})`);
   } catch (err) {
     console.warn(`  ⚠️ Recomendación falló: ${err.message}`);
-  }
-
-  // ========== 4. GUARDAR MONITOREO ==========
-  const { error } = await supabase.from('monitoreo_lote').upsert({
-    lote_id: lote.id,
-    fecha: hoy,
-    temperatura_max: datosClima.tmax,
-    temperatura_min: datosClima.tmin,
-    humedad_relativa: datosClima.humedad,
-    precipitacion: datosClima.precipitacion,
-    ndvi: ndviActual,
-    recomendacion_texto_es: riesgo.recomendacion_es,
-    recomendacion_texto_nah: riesgo.recomendacion_nah,
-    estado_semaforo: estadoSemaforo,
-    alerta_plaga: riesgo.alerta_plaga,
-    plaga_probable: riesgo.plaga_probable
-  }, { onConflict: 'lote_id, fecha' });
-
-  if (error) {
-    console.error(`  ❌ Error BD: ${error.message}`);
-  } else {
-    console.log(`  ✅ T=${datosClima.tmax}°C | ${riesgo.plaga_probable}`);
   }
 }
 

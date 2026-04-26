@@ -146,7 +146,7 @@ async function enviarMensaje(productor, alertas) {
 
         await twilioClient.messages.create({
             body: mensaje,
-            from: esWhatsApp ? `whatsapp:${process.env.TWILIO_PHONE_NUMBER}` : process.env.TWILIO_PHONE_NUMBER,
+            from: esWhatsApp ? 'whatsapp:+14155238886' : process.env.TWILIO_PHONE_NUMBER,
             to: esWhatsApp ? `whatsapp:${productor.telefono}` : productor.telefono
         });
 

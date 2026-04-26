@@ -518,25 +518,38 @@
 /* ── RESPONSIVE ──────────────────────────────────────────── */
 @media (max-width: 768px) {
     .pd-header {
-        padding: 0.75rem 1rem;
+        padding: 1rem;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
     }
 
     .pd-main {
-        padding: 1.25rem 1rem 3rem;
+        padding: 1rem 0.5rem 2rem;
     }
 
     .pd-welcome {
-        padding: 1.2rem 1.2rem;
+        padding: 1.2rem 1rem;
         flex-direction: column;
         text-align: center;
     }
 
+    .pd-welcome-title {
+        font-size: 1.3rem;
+    }
+
     .pd-stats {
         grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+
+    .pd-stat-card {
+        padding: 1rem 0.5rem;
     }
 
     .pd-monitoreos-grid {
         grid-template-columns: 1fr;
+        width: 100%;
     }
 
     .pd-reco-grid {
@@ -554,5 +567,13 @@
     .pd-header-nav {
         width: 100%;
         justify-content: center;
+        margin-top: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .pd-nav-btn, .pd-nav-btn-salir {
+        flex: 1 1 auto;
+        text-align: center;
+        min-width: 120px;
     }
 }
