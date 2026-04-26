@@ -5,16 +5,13 @@ import { supabase } from '../../lib/supabase'
 interface Productor {
     id: string
     nombre: string
-    apellidos: string
     folio: string
-    telefono: string
+    telefono?: string
     idioma_preferido: string
     tipo_acceso: string
-    estado: string
-    municipio: string
-    comunidad: string
     rol: string
     activo: boolean
+    municipios?: { nombre: string }[] | { nombre: string }
 }
 
 export default function AdminDashboard() {
@@ -25,7 +22,6 @@ export default function AdminDashboard() {
     const usuario = JSON.parse(localStorage.getItem('usuario') || '{}')
 
     useEffect(() => {
-        // Protección de ruta
         if (!usuario?.id || usuario?.rol !== 'admin') {
             navigate('/')
             return
@@ -37,17 +33,14 @@ export default function AdminDashboard() {
         setLoading(true)
         const { data } = await supabase
             .from('productores')
-            .select('*')
+            .select('id, nombre, folio, telefono, idioma_preferido, tipo_acceso, rol, activo, municipios(nombre)')
             .order('nombre', { ascending: true })
-        setProductores(data || [])
+        setProductores((data as unknown as Productor[]) || [])
         setLoading(false)
     }
 
     const toggleActivo = async (id: string, activo: boolean) => {
-        await supabase
-            .from('productores')
-            .update({ activo: !activo })
-            .eq('id', id)
+        await supabase.from('productores').update({ activo: !activo }).eq('id', id)
         cargarProductores()
     }
 
@@ -56,96 +49,100 @@ export default function AdminDashboard() {
         navigate('/')
     }
 
+    const getMunicipio = (p: Productor) => {
+        if (!p.municipios) return ''
+        return Array.isArray(p.municipios) ? p.municipios[0]?.nombre || '' : p.municipios.nombre
+    }
+
     const filtrados = productores.filter(p =>
         p.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
         p.folio?.toLowerCase().includes(busqueda.toLowerCase()) ||
-        p.municipio?.toLowerCase().includes(busqueda.toLowerCase())
+        getMunicipio(p).toLowerCase().includes(busqueda.toLowerCase())
     )
 
     return (
-        <div style={styles.wrapper}>
+        <div style={s.wrapper}>
             {/* Header */}
-            <header style={styles.header}>
-                <div style={styles.headerLeft}>
-                    <div style={styles.logoCircle}>T</div>
+            <header style={s.header}>
+                <div style={s.headerLeft}>
+                    <div style={s.logoCircle}>T</div>
                     <div>
-                        <h1 style={styles.headerTitle}>TLAPIANI</h1>
-                        <p style={styles.headerSub}>Panel de Administración</p>
+                        <h1 style={s.headerTitle}>TLAPIANI</h1>
+                        <p style={s.headerSub}>Panel de Administración</p>
                     </div>
                 </div>
-                <div style={styles.headerRight}>
-                    <span style={styles.adminName}>👤 {usuario?.nombre || 'Admin'}</span>
-                    <button style={styles.btnSalir} onClick={cerrarSesion}>Cerrar sesión</button>
+                <div style={s.headerRight}>
+                    <span style={s.adminName}>👤 {usuario?.nombre || 'Admin'}</span>
+                    <button style={s.btnSalir} onClick={cerrarSesion}>Cerrar sesión</button>
                 </div>
             </header>
 
-            {/* Contenido */}
-            <main style={styles.main}>
-                {/* Estadísticas */}
-                <div style={styles.statsGrid}>
-                    <div style={styles.statCard}>
-                        <span style={styles.statNum}>{productores.length}</span>
-                        <span style={styles.statLabel}>Productores totales</span>
+            <main style={s.main}>
+                {/* Stats */}
+                <div style={s.statsGrid}>
+                    <div style={s.statCard}>
+                        <span style={s.statNum}>{productores.filter(p => p.rol === 'productor').length}</span>
+                        <span style={s.statLabel}>Productores</span>
                     </div>
-                    <div style={styles.statCard}>
-                        <span style={styles.statNum}>{productores.filter(p => p.activo).length}</span>
-                        <span style={styles.statLabel}>Activos</span>
+                    <div style={s.statCard}>
+                        <span style={s.statNum}>{productores.filter(p => p.activo).length}</span>
+                        <span style={s.statLabel}>Activos</span>
                     </div>
-                    <div style={styles.statCard}>
-                        <span style={styles.statNum}>{productores.filter(p => !p.activo).length}</span>
-                        <span style={styles.statLabel}>Inactivos</span>
+                    <div style={s.statCard}>
+                        <span style={s.statNum}>{productores.filter(p => !p.activo).length}</span>
+                        <span style={s.statLabel}>Inactivos</span>
                     </div>
-                    <div style={styles.statCard}>
-                        <span style={styles.statNum}>{productores.filter(p => p.idioma_preferido === 'nah').length}</span>
-                        <span style={styles.statLabel}>En Náhuatl</span>
+                    <div style={s.statCard}>
+                        <span style={s.statNum}>{productores.filter(p => p.idioma_preferido === 'nah').length}</span>
+                        <span style={s.statLabel}>En Náhuatl</span>
                     </div>
                 </div>
 
-                {/* Buscador */}
-                <div style={styles.searchBar}>
+                {/* Búsqueda */}
+                <div style={s.searchBar}>
                     <input
-                        style={styles.searchInput}
+                        style={s.searchInput}
                         type="text"
                         placeholder="🔍 Buscar por nombre, folio o municipio..."
                         value={busqueda}
                         onChange={e => setBusqueda(e.target.value)}
                     />
-                    <button style={styles.btnRecargar} onClick={cargarProductores}>↺ Recargar</button>
+                    <button style={s.btnRecargar} onClick={cargarProductores}>↺ Recargar</button>
                 </div>
 
                 {/* Tabla */}
                 {loading ? (
-                    <p style={styles.loading}>Cargando productores...</p>
+                    <p style={s.loading}>Cargando productores...</p>
                 ) : (
-                    <div style={styles.tableWrap}>
-                        <table style={styles.table}>
+                    <div style={s.tableWrap}>
+                        <table style={s.table}>
                             <thead>
-                                <tr style={styles.theadRow}>
-                                    <th style={styles.th}>Nombre</th>
-                                    <th style={styles.th}>Folio</th>
-                                    <th style={styles.th}>Municipio</th>
-                                    <th style={styles.th}>Idioma</th>
-                                    <th style={styles.th}>Acceso</th>
-                                    <th style={styles.th}>Estado</th>
-                                    <th style={styles.th}>Acción</th>
+                                <tr style={s.theadRow}>
+                                    <th style={s.th}>Nombre</th>
+                                    <th style={s.th}>Folio</th>
+                                    <th style={s.th}>Municipio</th>
+                                    <th style={s.th}>Idioma</th>
+                                    <th style={s.th}>Acceso</th>
+                                    <th style={s.th}>Estado</th>
+                                    <th style={s.th}>Acción</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filtrados.map(p => (
-                                    <tr key={p.id} style={styles.tr}>
-                                        <td style={styles.td}>{p.nombre} {p.apellidos}</td>
-                                        <td style={styles.td}><code>{p.folio}</code></td>
-                                        <td style={styles.td}>{p.municipio}, {p.estado}</td>
-                                        <td style={styles.td}>{p.idioma_preferido === 'nah' ? '🌽 Náhuatl' : '🇲🇽 Español'}</td>
-                                        <td style={styles.td}>{p.tipo_acceso}</td>
-                                        <td style={styles.td}>
-                                            <span style={p.activo ? styles.badgeActivo : styles.badgeInactivo}>
+                                    <tr key={p.id} style={s.tr}>
+                                        <td style={s.td}>{p.nombre}</td>
+                                        <td style={s.td}><code>{p.folio}</code></td>
+                                        <td style={s.td}>{getMunicipio(p) || '—'}</td>
+                                        <td style={s.td}>{p.idioma_preferido === 'nah' ? '🌽 Náhuatl' : '🇲🇽 Español'}</td>
+                                        <td style={s.td}>{p.tipo_acceso}</td>
+                                        <td style={s.td}>
+                                            <span style={p.activo ? s.badgeActivo : s.badgeInactivo}>
                                                 {p.activo ? '✅ Activo' : '❌ Inactivo'}
                                             </span>
                                         </td>
-                                        <td style={styles.td}>
+                                        <td style={s.td}>
                                             <button
-                                                style={p.activo ? styles.btnDesactivar : styles.btnActivar}
+                                                style={p.activo ? s.btnDesactivar : s.btnActivar}
                                                 onClick={() => toggleActivo(p.id, p.activo)}
                                             >
                                                 {p.activo ? 'Desactivar' : 'Activar'}
@@ -155,7 +152,7 @@ export default function AdminDashboard() {
                                 ))}
                                 {filtrados.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} style={{ ...styles.td, textAlign: 'center', color: '#aaa' }}>
+                                        <td colSpan={7} style={{ ...s.td, textAlign: 'center', color: '#aaa' }}>
                                             No se encontraron productores.
                                         </td>
                                     </tr>
@@ -169,7 +166,7 @@ export default function AdminDashboard() {
     )
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const s: Record<string, React.CSSProperties> = {
     wrapper: {
         minHeight: '100vh',
         background: 'linear-gradient(135deg, #1a0a05 0%, #2d1a0a 50%, #1a0a05 100%)',
@@ -177,11 +174,8 @@ const styles: Record<string, React.CSSProperties> = {
         color: '#f0ebdc',
     },
     header: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        background: 'rgba(107,26,42,0.95)',
-        padding: '1rem 2rem',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        background: 'rgba(107,26,42,0.95)', padding: '1rem 2rem',
         borderBottom: '3px solid #b8860b',
     },
     headerLeft: { display: 'flex', alignItems: 'center', gap: '1rem' },
@@ -206,8 +200,8 @@ const styles: Record<string, React.CSSProperties> = {
     },
     statCard: {
         background: 'rgba(107,26,42,0.7)', border: '1px solid #b8860b',
-        borderRadius: '1rem', padding: '1.5rem', display: 'flex',
-        flexDirection: 'column', alignItems: 'center', gap: '0.5rem',
+        borderRadius: '1rem', padding: '1.5rem',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem',
     },
     statNum: { fontSize: '2.5rem', fontWeight: 900, color: '#b8860b' },
     statLabel: { fontSize: '0.85rem', color: '#f0ebdc', textAlign: 'center' },
@@ -215,8 +209,7 @@ const styles: Record<string, React.CSSProperties> = {
     searchInput: {
         flex: 1, padding: '0.75rem 1rem', borderRadius: '0.5rem',
         border: '1px solid #b8860b', background: 'rgba(0,0,0,0.4)',
-        color: '#f0ebdc', fontSize: '0.9rem', fontFamily: 'Georgia, serif',
-        outline: 'none',
+        color: '#f0ebdc', fontSize: '0.9rem', fontFamily: 'Georgia, serif', outline: 'none',
     },
     btnRecargar: {
         padding: '0.75rem 1.5rem', borderRadius: '0.5rem',
