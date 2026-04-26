@@ -1,5 +1,5 @@
 // frontend/src/components/ZonasRestauracion.tsx
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '../lib/supabase';
@@ -85,7 +85,7 @@ export function ZonasRestauracion() {
             el.style.border = '3px solid white';
             el.style.backgroundColor = zona.estado === 'disponible' ? '#1D9E75' : '#D85A30';
 
-            const marker = new mapboxgl.Marker(el)
+            new mapboxgl.Marker(el)
                 .setLngLat([zona.longitud, zona.latitud])
                 .addTo(map.current!);
 

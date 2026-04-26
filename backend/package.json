@@ -4,6 +4,7 @@
   "scripts": {
     "ndvi": "node scripts/04_ndvi_modis.js",
     "clima": "node scripts/03_nasa_power.js",
+    "alertas": "node scripts/10_enviar_alertas.js",
     "all": "npm run ndvi && npm run clima",
     "verify": "node scripts/06_verificar_sistema.js"
   },

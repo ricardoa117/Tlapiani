@@ -1,7 +1,11 @@
-// src/pages/AdminDashboard.tsx
-import React, { useEffect, useState } from 'react';
+// src/pages/admin/AdminDashboard.tsx
+// ============================================================
+// TLAPIANI — Panel de Administración
+// ============================================================
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../../lib/supabase';
+// @ts-ignore
 import Map, { Marker, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -36,16 +40,6 @@ interface Zona {
     apoyo_mensual_estimado: number;
     estado: 'disponible' | 'asignada';
     municipios?: { nombre: string };
-}
-
-interface MonitoreoResumen {
-    productor_id: string;
-    total_lotes: number;
-    lotes_en_riesgo: number;
-    alertas_activas: number;
-    estado_general: 'bajo' | 'medio' | 'alto';
-    cultivos_afectados: string[];
-    ultima_fecha_monitoreo: string;
 }
 
 export default function AdminDashboard() {
@@ -91,17 +85,18 @@ export default function AdminDashboard() {
     const [mensajeModal, setMensajeModal] = useState('');
     const [enviandoModal, setEnviandoModal] = useState(false);
 
-    // Verificar sesión
+    // Verificar sesión — BUG FIX: usar clave 'usuario' (la que usa Login.tsx)
     useEffect(() => {
-        const sesion = localStorage.getItem('tlapiani_sesion');
+        const sesion = localStorage.getItem('usuario');
         if (!sesion) {
             navigate('/login');
             return;
         }
 
         const datos = JSON.parse(sesion);
+        // BUG FIX: redirigir no-admin a /productor/dashboard
         if (datos.rol !== 'admin') {
-            navigate('/dashboard');
+            navigate('/productor/dashboard');
             return;
         }
 
@@ -245,7 +240,7 @@ export default function AdminDashboard() {
     }
 
     function cerrarSesion() {
-        localStorage.removeItem('tlapiani_sesion');
+        localStorage.removeItem('usuario');
         navigate('/login');
     }
 
@@ -813,7 +808,7 @@ export default function AdminDashboard() {
                                 }}>
                                     <Map
                                         {...viewState}
-                                        onMove={evt => setViewState(evt.viewState)}
+                                        onMove={(evt: any) => setViewState(evt.viewState)}
                                         mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
                                         style={{ width: '100%', height: '100%' }}
                                         mapStyle="mapbox://styles/mapbox/satellite-streets-v12"

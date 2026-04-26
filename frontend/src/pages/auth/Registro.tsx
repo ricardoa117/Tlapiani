@@ -303,21 +303,16 @@ export default function Registro() {
                                             Registra tu parcela, cultivos y accede a monitoreo satelital.
                                         </p>
                                     </div>
-                                    <div
-                                        className="account-card"
-                                        onClick={() => setError('Los administradores se crean directamente en la base de datos. Contacta al equipo técnico.')}
-                                        style={{ opacity: 0.7 }}
-                                    >
-                                        <svg className="account-card-icon" viewBox="0 0 24 24">
-                                            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
-                                        </svg>
-                                        <span className="account-card-title">Administrador</span>
-                                        <p style={{ color: '#555', textAlign: 'center', fontSize: '0.9rem' }}>
-                                            Solo para personal autorizado. No disponible en registro público.
-                                        </p>
-                                    </div>
+                                </div>
+                                <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+                                    <p style={{ color: '#ccc', fontSize: '0.85rem' }}>
+                                        ⚠️ Nota: Las cuentas de Administrador solo pueden ser creadas internamente por el equipo de soporte.
+                                    </p>
                                 </div>
                                 {error && <p className="login-error" style={{ marginTop: '1rem' }}>{error}</p>}
+                                <button type="button" className="registro-back-btn" onClick={() => navigate('/login')} style={{ width: '100%', marginTop: '1rem' }}>
+                                    ← Volver al Login
+                                </button>
                             </>
                         )}
 

@@ -444,8 +444,79 @@
     line-height: 1.6;
 }
 
+/* ── RECOMENDACIONES ─────────────────────────────────────── */
+.pd-reco-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.2rem;
+    margin-bottom: 2.5rem;
+}
+
+.pd-reco-card {
+    background: rgba(184, 134, 11, 0.12);
+    border: 1px solid rgba(184, 134, 11, 0.5);
+    border-radius: 1rem;
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    transition: transform 0.2s, border-color 0.25s;
+}
+
+.pd-reco-card:hover {
+    transform: translateY(-3px);
+    border-color: #b8860b;
+}
+
+.pd-reco-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pd-reco-cultivo {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f0ebdc;
+    text-transform: capitalize;
+}
+
+.pd-reco-compat {
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: #b8860b;
+}
+
+.pd-reco-compat-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.pd-reco-compat-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.6s ease;
+}
+
+.pd-reco-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+.pd-reco-ganancia {
+    font-size: 0.85rem;
+    color: #22c55e;
+    font-weight: 600;
+    margin-top: 0.2rem;
+}
+
 /* ── RESPONSIVE ──────────────────────────────────────────── */
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .pd-header {
         padding: 0.75rem 1rem;
     }
@@ -456,13 +527,32 @@
 
     .pd-welcome {
         padding: 1.2rem 1.2rem;
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .pd-stats {
+        grid-template-columns: repeat(2, 1fr);
     }
 
     .pd-monitoreos-grid {
         grid-template-columns: 1fr;
     }
 
+    .pd-reco-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pd-info-grid {
+        grid-template-columns: 1fr;
+    }
+
     .pd-metrics {
         grid-template-columns: 1fr 1fr;
+    }
+
+    .pd-header-nav {
+        width: 100%;
+        justify-content: center;
     }
 }
