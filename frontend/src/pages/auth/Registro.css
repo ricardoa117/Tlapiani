@@ -1,0 +1,431 @@
+/* Reset total */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body,
+html {
+    width: 100%;
+    overflow-x: hidden;
+}
+
+/* ── WRAPPER GENERAL ── */
+.registro-wrapper {
+    min-height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 0;
+    background-image: url('../../assets/imagenes/fondo-azteca.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    position: relative;
+}
+
+.registro-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    /* Un poco más de oscuridad para resaltar el crema */
+    z-index: 1;
+}
+
+/* ── CONTENIDO PRINCIPAL ── */
+.registro-content {
+    position: relative;
+    z-index: 10;
+    width: 90%;
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+    padding: 0 1rem;
+}
+
+/* ════════════════════════════════════════════
+   BARRA SUPERIOR (COLORES INVERTIDOS)
+   ════════════════════════════════════════════ */
+.registro-topbar {
+    display: flex;
+    align-items: center;
+    background-color: #6b1a2a;
+    /* Fondo Guinda */
+    border-radius: 1rem;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    width: 100%;
+    height: 7rem;
+}
+
+.topbar-logo {
+    background-image: url('../../assets/imagenes/logo.png');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    width: 5.5rem;
+    height: 5.5rem;
+    flex-shrink: 0;
+    margin: 0 1rem;
+    border-radius: 50%;
+    background-color: #2d6a4f;
+    border: 3px solid #f0ebdc;
+    /* Resalte en crema */
+}
+
+/* Sección TLATOANI (Fondo Crema) */
+.topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background-color: #f0ebdc;
+    padding: 0 2.5rem;
+    height: 100%;
+}
+
+.topbar-brand-name {
+    color: #6b1a2a;
+    /* Texto Guinda */
+    font-family: 'Georgia', serif;
+    font-size: clamp(1.2rem, 2vw, 1.6rem);
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+/* Divisor inclinado */
+.topbar-divider {
+    width: 0;
+    height: 0;
+    border-top: 7rem solid #f0ebdc;
+    border-right: 2.5rem solid transparent;
+    flex-shrink: 0;
+}
+
+/* ── STEPPER (4 Hexágonos) ── */
+.topbar-stepper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Centrado para que los 4 queden bien alineados */
+    gap: 0;
+    padding: 0 2rem;
+}
+
+.step {
+    width: 2.5rem;
+    height: 2.5rem;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+    z-index: 2;
+}
+
+/* Colores de los estados */
+.step--done {
+    background-color: #b8860b;
+    /* Dorado para lo que ya pasó */
+}
+
+.step--active {
+    background-color: #f0ebdc;
+    /* Crema brillante para el actual */
+    transform: scale(1.15);
+}
+
+.step--pending {
+    background-color: rgba(240, 235, 220, 0.2);
+    border: 2px solid rgba(240, 235, 220, 0.5);
+}
+
+.step-line {
+    width: 15%;
+    /* Controla el largo de la línea entre hexágonos */
+    height: 2px;
+    border-top: 2px dashed rgba(240, 235, 220, 0.4);
+    z-index: 1;
+}
+
+/* ════════════════════════════════════════════
+   SECCIÓN DE CARDS
+   ════════════════════════════════════════════ */
+.registro-section-title {
+    text-align: center;
+    color: white;
+    font-family: 'Georgia', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 15px rgba(0, 0, 0, 0.8);
+}
+
+.registro-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 3rem;
+    width: 100%;
+}
+
+.account-card {
+    background-color: rgba(240, 235, 220, 0.95);
+    border: 4px solid #6b1a2a;
+    border-radius: 1.5rem;
+    padding: 5rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    cursor: pointer;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6);
+    transition: all 0.3s ease;
+}
+
+.account-card:hover {
+    transform: translateY(-10px);
+    background-color: #ffffff;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
+}
+
+.account-card-title {
+    font-family: 'Georgia', serif;
+    font-size: 2rem;
+    font-weight: 900;
+    color: #2d1a0a;
+    letter-spacing: 0.1em;
+}
+
+.account-card-icon {
+    width: 7rem;
+    height: 7rem;
+    fill: #6b1a2a;
+}
+
+/* ── BOTONES ── */
+.registro-back-btn {
+    margin: 1rem auto;
+    padding: 1rem 3.5rem;
+    font-family: 'Georgia', serif;
+    font-weight: bold;
+    font-size: 1.1rem;
+    background-color: #f0ebdc;
+    color: #6b1a2a;
+    border: 2px solid #6b1a2a;
+    cursor: pointer;
+    border-radius: 0.5rem;
+    transition: all 0.3s;
+}
+
+.registro-back-btn:hover {
+    background-color: #6b1a2a;
+    color: #f0ebdc;
+}
+
+/* RESPONSIVO */
+@media (max-width: 900px) {
+    .topbar-divider {
+        display: none;
+    }
+
+    .topbar-brand {
+        padding: 0 1rem;
+    }
+
+    .topbar-stepper {
+        padding: 0 0.5rem;
+    }
+
+    .step-line {
+        width: 10%;
+    }
+}
+
+
+/*FORMULARIOS*/
+/* Estilos para los formularios tipo "Box" */
+.form-box {
+    background-color: #2b2620;
+    /* Color oscuro de las fotos */
+    border: 2px solid #b8860b;
+    border-radius: 12px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    color: white;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+.form-box h2 {
+    font-family: 'Georgia', serif;
+    margin-bottom: 0.2rem;
+}
+
+.step-indicator {
+    color: #ccc;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1.2rem;
+    text-align: left;
+}
+
+.input-group label {
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #f0ebdc;
+}
+
+.input-group input,
+.input-group select {
+    background-color: #6b1a2a;
+    /* Fondo guinda de los inputs */
+    border: 1px solid #b8860b;
+    color: white;
+    padding: 0.8rem;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.row {
+    display: flex;
+    gap: 1rem;
+}
+
+.flex-1 {
+    flex: 1;
+}
+
+.flex-2 {
+    flex: 2;
+}
+
+.btn-siguiente {
+    background-color: #b8860b;
+    color: white;
+    border: none;
+    padding: 1rem;
+    width: 100%;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 1rem;
+}
+
+.btn-add {
+    background: none;
+    border: 1px solid #b8860b;
+    color: white;
+    padding: 0.8rem;
+    width: 100%;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    cursor: pointer;
+}
+
+/* El Camioncito en el Stepper */
+.camion-icon {
+    width: 50px;
+    height: 40px;
+    background-image: url('../../assets/imagenes/camion-lechuga.png');
+    /* Asegúrate de que la ruta sea correcta */
+    background-size: contain;
+    background-repeat: no-repeat;
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+}
+
+/* Grupos de botones (Idioma y Acceso) */
+.btn-group-2,
+.btn-group-3 {
+    display: grid;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.btn-group-2 {
+    grid-template-columns: 1fr 1fr;
+}
+
+.btn-group-3 {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+.opt-btn {
+    background: transparent;
+    border: 1px solid #444;
+    /* Color oscuro como la imagen */
+    color: white;
+    padding: 0.8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.opt-btn.active,
+.opt-btn:hover {
+    background-color: #6b1a2a;
+    border-color: #b8860b;
+}
+
+/* Botón de Ubicación Actual */
+.btn-location {
+    width: 100%;
+    background: transparent;
+    border: 1px solid #444;
+    color: white;
+    padding: 0.8rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Botones alineados (Atrás y Siguiente) */
+.row-btns {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.btn-atras-inline {
+    flex: 1;
+    background: transparent;
+    border: 1px solid #444;
+    color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.btn-siguiente-inline {
+    flex: 2;
+    background-color: #b8860b;
+    color: white;
+    border: none;
+    padding: 1rem;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.input-readonly {
+    background-color: rgba(0, 0, 0, 0.3) !important;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
