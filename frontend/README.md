@@ -96,9 +96,9 @@ Ver `.env.example` en cada carpeta.
 Hackatón Por Amor a Puebla 2026
 
 - **Ricardo** - Backend & Data
-- **[Nombre]** - Frontend
-- **[Nombre]** - Fullstack
-- **[Nombre]** - UX/Design
+- **Guillermo** - Frontend
+- **David** - Fullstack
+- **Brandon** - UX/Design
 
 ## 📊 Impacto
 
@@ -169,7 +169,7 @@ git push -u origin main
 ```
 
 Si pide autenticación:
-- **Usuario:** ricardoa117
+- **Usuario:** 
 - **Contraseña:** Usar Personal Access Token (no tu contraseña de GitHub)
 
 ---
