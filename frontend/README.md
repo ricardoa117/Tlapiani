@@ -1,7 +1,7 @@
 # 🌾 TLAPIANI
 ## Plataforma de Resiliencia Climática Agrícola para Puebla
 
-Tlapiani es un sistema de alerta temprana de plagas y monitoreo satelital para pequeños productores agrícolas en Puebla, México. Primera app agrícola en náhuatl del país.
+Tlapiani es un sistema de alerta temprana de plagas y monitoreo satelital para pequeños productores agrícolas en Puebla, México.
 
 ## 🎯 Características
 
